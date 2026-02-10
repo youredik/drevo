@@ -26,9 +26,28 @@ paths:
         bucket: ${spa_bucket}
         object: index.html
         service_account_id: ${sa_id}
+    head:
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: ${spa_bucket}
+        object: index.html
+        service_account_id: ${sa_id}
 
   /{file+}:
     get:
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: ${spa_bucket}
+        object: '{file}'
+        service_account_id: ${sa_id}
+        error_object: index.html
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+    head:
       x-yc-apigateway-integration:
         type: object_storage
         bucket: ${spa_bucket}

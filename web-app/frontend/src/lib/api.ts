@@ -10,7 +10,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
+    if (res.status === 401 && typeof window !== "undefined" && token) {
       localStorage.removeItem("drevo_token");
       window.location.href = "/login";
       throw new Error("Сессия истекла");
@@ -28,7 +28,7 @@ async function requestText(path: string): Promise<string> {
 
   const res = await fetch(`${API_BASE}${path}`, { headers });
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
+    if (res.status === 401 && typeof window !== "undefined" && token) {
       localStorage.removeItem("drevo_token");
       window.location.href = "/login";
       throw new Error("Сессия истекла");

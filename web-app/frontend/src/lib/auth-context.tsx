@@ -68,7 +68,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canEdit = user?.role === "admin" || user?.role === "manager";
   const isAdmin = user?.role === "admin";
 
-  // While redirecting to login, render nothing (avoid flash of content)
+  // While loading auth state, render nothing (prevents components from making API calls)
+  // Exception: login page should always render
+  if (isLoading && pathname !== "/login") {
+    return (
+      <AuthContext.Provider value={{ user, isLoading, login, logout, canEdit, isAdmin }}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AuthContext.Provider>
+    );
+  }
+
+  // Not authenticated and not on login page — render nothing while redirecting
   if (!isLoading && !user && pathname !== "/login") {
     return null;
   }
