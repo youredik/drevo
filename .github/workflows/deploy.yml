@@ -74,6 +74,13 @@ jobs:
           SA_ID=$(yc iam service-account get drevo-sa --format json | jq -r '.id')
           echo "id=$SA_ID" >> $GITHUB_OUTPUT
 
+      - name: Upload function package to S3
+        run: |
+          yc storage s3api put-object \
+            --bucket=${{ env.MEDIA_BUCKET }} \
+            --key=deploy/api.zip \
+            --body=web-app/functions/dist/api.zip
+
       - name: Deploy Cloud Function
         run: |
           yc serverless function version create \
@@ -82,7 +89,8 @@ jobs:
             --entrypoint=handler.handler \
             --memory=256m \
             --execution-timeout=10s \
-            --source-path=web-app/functions/dist/api.zip \
+            --package-bucket-name=${{ env.MEDIA_BUCKET }} \
+            --package-object-name=deploy/api.zip \
             --service-account-id=${{ steps.sa.outputs.id }} \
             --environment="JWT_SECRET=${{ secrets.JWT_SECRET }},YDB_ENDPOINT=${{ steps.ydb.outputs.endpoint }},YDB_DATABASE=${{ steps.ydb.outputs.database }},MEDIA_MOUNT=/mnt/media" \
             --storage-mounts="mount-point=media,bucket=${{ env.MEDIA_BUCKET }},prefix=,read-only=false"
