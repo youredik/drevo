@@ -116,6 +116,7 @@ jobs:
           echo "=== Uploading to ${{ env.SPA_BUCKET }} (parallel) ==="
           cd web-app/frontend/out
 
+          FAIL_LOG=$(mktemp)
           upload_file() {
             local file="$1"
             local key="${file#./}"
@@ -135,34 +136,29 @@ jobs:
               map)  ct="application/json" ;;
               *)    ct="application/octet-stream" ;;
             esac
-            yc storage s3api put-object \
+            if yc storage s3api put-object \
               --bucket=${{ env.SPA_BUCKET }} \
               --key="$key" \
               --body="$file" \
-              --content-type="$ct" > /dev/null \
-            && echo "  uploaded: $key ($ct)" \
-            || echo "  FAILED: $key"
+              --content-type="$ct" > /dev/null 2>&1; then
+              echo "  uploaded: $key ($ct)"
+            else
+              echo "$key" >> "$FAIL_LOG"
+              echo "  FAILED: $key"
+            fi
           }
           export -f upload_file
+          export FAIL_LOG
 
           find . -type f -print0 | xargs -0 -P 20 -n 1 bash -c 'upload_file "$1"' _
-          wait
-          FAILED=$(find . -type f -print0 | xargs -0 -P 20 -n 1 bash -c '
-            f="$1"; key="${f#./}"
-            case "${key##*.}" in
-              html) ct="text/html; charset=utf-8" ;; css) ct="text/css" ;;
-              js) ct="application/javascript" ;; json|map) ct="application/json" ;;
-              svg) ct="image/svg+xml" ;; png) ct="image/png" ;;
-              jpg|jpeg) ct="image/jpeg" ;; ico) ct="image/x-icon" ;;
-              txt) ct="text/plain" ;; woff) ct="font/woff" ;; woff2) ct="font/woff2" ;;
-              *) ct="application/octet-stream" ;;
-            esac
-            yc storage s3api head-object --bucket=$BUCKET --key="$key" > /dev/null 2>&1 || echo "$key"
-          ' _ 2>/dev/null)
-          if [ -n "$FAILED" ]; then
-            echo "::error::Failed to upload: $FAILED"
+
+          if [ -s "$FAIL_LOG" ]; then
+            echo "::error::Failed to upload $(wc -l < "$FAIL_LOG") files:"
+            cat "$FAIL_LOG"
+            rm -f "$FAIL_LOG"
             exit 1
           fi
+          rm -f "$FAIL_LOG"
           echo "=== Upload complete ==="
 
       # ─── Cleanup ─────────────────────────────────────────
