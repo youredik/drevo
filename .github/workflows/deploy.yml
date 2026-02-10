@@ -16,8 +16,9 @@ env:
   MEDIA_BUCKET: drevo-media
 
 jobs:
-  build-and-deploy:
-    name: Build & Deploy
+  # ─── Parallel build jobs ──────────────────────────────
+  build-backend:
+    name: Build Backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,33 +27,69 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: |
-            web-app/functions/package-lock.json
-            web-app/frontend/package-lock.json
+          cache-dependency-path: web-app/functions/package-lock.json
 
-      # ─── Build backend ───────────────────────────────────
-      - name: Install backend deps
+      - name: Install deps
         working-directory: web-app/functions
         run: npm ci
 
-      - name: Typecheck backend
+      - name: Typecheck
         working-directory: web-app/functions
         run: npx tsc --noEmit
 
-      - name: Build backend
+      - name: Build
         working-directory: web-app/functions
         run: npm run build
 
-      # ─── Build frontend ──────────────────────────────────
-      - name: Install frontend deps
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-artifact
+          path: web-app/functions/dist/api.zip
+          retention-days: 1
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web-app/frontend/package-lock.json
+
+      - name: Install deps
         working-directory: web-app/frontend
         run: npm ci
 
-      - name: Build frontend
+      - name: Build
         working-directory: web-app/frontend
         run: npx next build
         env:
           NEXT_PUBLIC_API_URL: ""
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-artifact
+          path: web-app/frontend/out/
+          retention-days: 1
+
+  # ─── Deploy (waits for both builds) ───────────────────
+  deploy:
+    name: Deploy
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-artifact
+          path: backend/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-artifact
+          path: frontend/
 
       # ─── Install YC CLI ──────────────────────────────────
       - name: Cache YC CLI
@@ -91,7 +128,7 @@ jobs:
           yc storage s3api put-object \
             --bucket=${{ env.MEDIA_BUCKET }} \
             --key=deploy/api.zip \
-            --body=web-app/functions/dist/api.zip
+            --body=backend/api.zip
 
       - name: Deploy Cloud Function
         run: |
@@ -111,10 +148,10 @@ jobs:
       - name: Upload SPA
         run: |
           echo "=== Build output ==="
-          find web-app/frontend/out -type f | wc -l
+          find frontend -type f | wc -l
 
           echo "=== Uploading to ${{ env.SPA_BUCKET }} (parallel) ==="
-          cd web-app/frontend/out
+          cd frontend
 
           FAIL_LOG=$(mktemp)
           upload_file() {
@@ -150,7 +187,7 @@ jobs:
           export -f upload_file
           export FAIL_LOG
 
-          find . -type f -print0 | xargs -0 -P 20 -n 1 bash -c 'upload_file "$1"' _
+          find . -type f -print0 | xargs -0 -P 50 -n 1 bash -c 'upload_file "$1"' _
 
           if [ -s "$FAIL_LOG" ]; then
             echo "::error::Failed to upload $(wc -l < "$FAIL_LOG") files:"
