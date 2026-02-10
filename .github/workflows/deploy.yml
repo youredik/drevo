@@ -98,12 +98,38 @@ jobs:
 
       # ─── Deploy SPA to Object Storage ────────────────────
       - name: Upload SPA
-        uses: yc-actions/yc-obj-storage-upload@v2
-        with:
-          yc-sa-json-credentials: ${{ secrets.YC_SA_KEY }}
-          bucket: ${{ env.SPA_BUCKET }}
-          root: web-app/frontend/out
-          clear: true
+        run: |
+          echo "=== Build output ==="
+          find web-app/frontend/out -type f | wc -l
+          find web-app/frontend/out -type f | head -30
+
+          echo "=== Uploading to ${{ env.SPA_BUCKET }} ==="
+          cd web-app/frontend/out
+          find . -type f | while IFS= read -r file; do
+            key="${file#./}"
+            case "${key##*.}" in
+              html) ct="text/html; charset=utf-8" ;;
+              css)  ct="text/css" ;;
+              js)   ct="application/javascript" ;;
+              json) ct="application/json" ;;
+              svg)  ct="image/svg+xml" ;;
+              png)  ct="image/png" ;;
+              jpg|jpeg) ct="image/jpeg" ;;
+              ico)  ct="image/x-icon" ;;
+              txt)  ct="text/plain" ;;
+              woff) ct="font/woff" ;;
+              woff2) ct="font/woff2" ;;
+              map)  ct="application/json" ;;
+              *)    ct="application/octet-stream" ;;
+            esac
+            yc storage s3api put-object \
+              --bucket=${{ env.SPA_BUCKET }} \
+              --key="$key" \
+              --body="$file" \
+              --content-type="$ct" > /dev/null
+            echo "  uploaded: $key ($ct)"
+          done
+          echo "=== Upload complete ==="
 
       # ─── Cleanup ─────────────────────────────────────────
       - name: Cleanup
