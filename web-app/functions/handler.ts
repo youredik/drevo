@@ -7,7 +7,8 @@ import {
   createUser, updateUserById, deleteUserById,
 } from "./shared/auth.js";
 import { isYdbConfigured } from "./shared/ydb-client.js";
-import { ensureTables, migrateFromCsv } from "./shared/ydb-schema.js";
+import { ensureTables, migrateFromCsv, migrateFromCsvString } from "./shared/ydb-schema.js";
+import { parsePersonsCsvString } from "./shared/csv-parser.js";
 import { loadAllFromYdb, upsertPerson, deletePerson as ydbDeletePerson, addSpouse, removeSpouse, addChild, removeChild, loadConfig, setConfigValue } from "./shared/ydb-repository.js";
 import type { Person, PersonFormData } from "./shared/types.js";
 
@@ -600,9 +601,20 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       const body = parseBody<{ data: string }>(event);
       if (!body.data) return err("Укажите data (base64 CSV)", 400);
 
-      // This would require re-parsing CSV and reinitializing — complex operation
-      // For now, only supported with YDB (re-migrate)
-      return err("Импорт CSV через API пока не поддерживается. Используйте миграцию.", 501);
+      const csvContent = Buffer.from(body.data, "base64").toString("utf-8");
+      const persons = parsePersonsCsvString(csvContent);
+      if (persons.size === 0) return err("CSV пустой или некорректный", 400);
+
+      if (isYdbConfigured()) {
+        const count = await migrateFromCsvString(csvContent);
+        const { persons: ydbPersons, favorites } = await loadAllFromYdb();
+        repo = DataRepository.fromData(ydbPersons, favorites, MEDIA_PATH, INFO_PATH);
+        useYdb = true;
+        return json({ imported: count });
+      } else {
+        repo = DataRepository.fromData(persons, [], MEDIA_PATH, INFO_PATH);
+        return json({ imported: persons.size, warning: "Данные загружены только в память (YDB не настроен)" });
+      }
     }
 
     // ── 404 ──

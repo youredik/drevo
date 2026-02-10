@@ -1,6 +1,6 @@
 import { getYdbDriver } from "./ydb-client.js";
 import ydb from "ydb-sdk";
-import { parsePersonsCsv, parseFavoritesCsv } from "./csv-parser.js";
+import { parsePersonsCsv, parsePersonsCsvString, parseFavoritesCsv } from "./csv-parser.js";
 import type { Person } from "./types.js";
 
 const { Column, TableDescription, Types } = ydb;
@@ -165,6 +165,67 @@ export async function migrateFromCsv(csvPath: string, favPath?: string): Promise
   }
 
   console.log(`Migration complete: ${persons.size} persons`);
+  return persons.size;
+}
+
+// ─── Migration from CSV string (for import API) ─────────
+
+export async function migrateFromCsvString(csvContent: string): Promise<number> {
+  const driver = await getYdbDriver();
+  const persons = parsePersonsCsvString(csvContent);
+
+  if (persons.size === 0) return 0;
+
+  // Clear existing data
+  await driver.tableClient.withSession(async (session: any) => {
+    await session.executeQuery("DELETE FROM persons;");
+    await session.executeQuery("DELETE FROM spouses;");
+    await session.executeQuery("DELETE FROM children;");
+  });
+
+  console.log(`Importing ${persons.size} persons from CSV...`);
+
+  const personBatch: Person[] = Array.from(persons.values());
+  const BATCH_SIZE = 50;
+
+  for (let i = 0; i < personBatch.length; i += BATCH_SIZE) {
+    const batch = personBatch.slice(i, i + BATCH_SIZE);
+    await upsertPersonsBatch(driver, batch);
+  }
+
+  const spousePairs = new Set<string>();
+  for (const person of persons.values()) {
+    for (const spouseId of person.spouseIds) {
+      const key = [Math.min(person.id, spouseId), Math.max(person.id, spouseId)].join(",");
+      spousePairs.add(key);
+    }
+  }
+
+  const spouseRows: { personId: number; spouseId: number }[] = [];
+  for (const pair of spousePairs) {
+    const [a, b] = pair.split(",").map(Number);
+    spouseRows.push({ personId: a, spouseId: b });
+    spouseRows.push({ personId: b, spouseId: a });
+  }
+
+  for (let i = 0; i < spouseRows.length; i += BATCH_SIZE) {
+    const batch = spouseRows.slice(i, i + BATCH_SIZE);
+    await upsertSpousesBatch(driver, batch);
+  }
+
+  const childRows: { parentId: number; childId: number }[] = [];
+  for (const person of persons.values()) {
+    for (const childId of person.childrenIds) {
+      childRows.push({ parentId: person.id, childId });
+    }
+  }
+
+  for (let i = 0; i < childRows.length; i += BATCH_SIZE) {
+    const batch = childRows.slice(i, i + BATCH_SIZE);
+    await upsertChildrenBatch(driver, batch);
+  }
+
+  console.log(`Import complete: ${persons.size} persons, ${spouseRows.length} spouse rows, ${childRows.length} child rows`);
   return persons.size;
 }
 
