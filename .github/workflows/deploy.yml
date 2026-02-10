@@ -85,7 +85,7 @@ jobs:
         run: |
           yc serverless function version create \
             --function-name=${{ env.FUNCTION_NAME }} \
-            --runtime=nodejs20 \
+            --runtime=nodejs22 \
             --entrypoint=handler.handler \
             --memory=256m \
             --execution-timeout=10s \
