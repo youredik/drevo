@@ -61,7 +61,7 @@ if (existsSync(infoSrc)) {
 writeFileSync(
   join(DIST, "package.json"),
   JSON.stringify(
-    { name: "drevo-api", version: "1.0.0", private: true, dependencies: { "ydb-sdk": "^5.11.1" } },
+    { name: "drevo-api", version: "1.0.0", private: true, dependencies: { "ydb-sdk": "^5.11.1", "@yandex-cloud/nodejs-sdk": "^2.0.0" } },
     null,
     2
   )
