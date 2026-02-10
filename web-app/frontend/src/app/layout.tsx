@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Drevo — Семейное древо",
   description: "Семейное генеалогическое приложение для просмотра, поиска и исследования родственных связей",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -26,6 +27,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#2d7a4f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Drevo" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <div className="min-h-screen flex flex-col">
@@ -33,6 +40,11 @@ export default function RootLayout({
             <main className="flex-1 pb-20 md:pb-0">{children}</main>
           </div>
         </Providers>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`
+          }}
+        />
       </body>
     </html>
   );

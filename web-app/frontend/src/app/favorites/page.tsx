@@ -86,6 +86,7 @@ export default function FavoritesPage() {
                       <img
                         src={mediaUrl(photo)}
                         alt={`${p.lastName} ${p.firstName}`}
+                        loading="lazy"
                         className={`h-20 w-20 rounded-xl object-cover ring-2 ${isAlive ? "ring-emerald-400" : "ring-red-400"}`}
                       />
                       <div>

@@ -96,6 +96,20 @@ export default function SettingsPage() {
     } catch (e: any) { showMsg("Ошибка: " + e.message); }
   }
 
+  async function handleExportGedcom() {
+    try {
+      const gedcom = await api.exportGedcom();
+      const blob = new Blob([gedcom], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "drevo-export.ged";
+      a.click();
+      URL.revokeObjectURL(url);
+      showMsg("GEDCOM экспортирован");
+    } catch (e: any) { showMsg("Ошибка: " + e.message); }
+  }
+
   async function handleImport() {
     try {
       const result = await api.importCsv(importCsv);
@@ -164,6 +178,9 @@ export default function SettingsPage() {
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={handleExport} className="gap-2">
               <Download className="h-4 w-4" /> Экспорт CSV
+            </Button>
+            <Button variant="outline" onClick={handleExportGedcom} className="gap-2">
+              <Download className="h-4 w-4" /> Экспорт GEDCOM
             </Button>
             <div className="relative">
               <Button variant="outline" className="gap-2" onClick={() => document.getElementById("csv-import")?.click()}>

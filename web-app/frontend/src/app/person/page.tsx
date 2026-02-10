@@ -24,6 +24,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, mediaUrl, PersonCard, PersonBrief } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
+import { ShareButton } from "@/components/share-button";
+import { Timeline } from "@/components/timeline";
 
 function PersonContent() {
   const searchParams = useSearchParams();
@@ -55,13 +57,23 @@ function PersonContent() {
   }, [id]);
 
   const toggleFavorite = async () => {
+    const wasFav = isFav;
     try {
-      if (isFav) {
+      if (wasFav) {
         await api.removeFavorite(id);
         setIsFav(false);
+        toast.success("Удалено из избранного", {
+          action: {
+            label: "Отменить",
+            onClick: async () => {
+              try { await api.addFavorite(id); setIsFav(true); } catch {}
+            },
+          },
+        });
       } else {
         await api.addFavorite(id);
         setIsFav(true);
+        toast.success("Добавлено в избранное");
       }
     } catch (e: any) { toast.error(e.message || "Не удалось обновить избранное"); }
   };
@@ -144,6 +156,10 @@ function PersonContent() {
             </Button>
           </Link>
         )}
+        <ShareButton
+          title={`${person.lastName} ${person.firstName} — Drevo`}
+          text={`${person.lastName} ${person.firstName}`}
+        />
         <Button variant="outline" size="sm" className="gap-2" onClick={toggleFavorite}>
           <Heart className={`h-4 w-4 ${isFav ? "fill-red-500 text-red-500" : ""}`} />
         </Button>
@@ -201,7 +217,7 @@ function PersonContent() {
 
         {/* Info */}
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-1">
+          <h1 className="text-responsive-title font-bold mb-1">
             {person.lastName} {person.firstName}
           </h1>
           <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -219,6 +235,7 @@ function PersonContent() {
               {(data.hasBio || bio) && (
                 <TabsTrigger value="bio" className="flex-1">Биография</TabsTrigger>
               )}
+              <TabsTrigger value="timeline" className="flex-1">Хроника</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="mt-4 space-y-3">
@@ -287,6 +304,18 @@ function PersonContent() {
                 </motion.div>
               </TabsContent>
             )}
+
+            <TabsContent value="timeline" className="mt-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                <Timeline events={[
+                  ...(person.birthDay ? [{ date: person.birthDay, label: `Родился: ${person.lastName} ${person.firstName}`, type: "birth" as const }] : []),
+                  ...(person.marryDay ? [{ date: person.marryDay, label: "Свадьба", type: "marriage" as const }] : []),
+                  ...(person.deathDay ? [{ date: person.deathDay, label: `Смерть: ${person.lastName} ${person.firstName}`, type: "death" as const }] : []),
+                  ...(person.birthPlace ? [{ date: "", label: `Место рождения: ${person.birthPlace}`, type: "info" as const }] : []),
+                  ...(person.address ? [{ date: "", label: `Адрес: ${person.address}`, type: "info" as const }] : []),
+                ]} />
+              </motion.div>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -368,6 +397,7 @@ function PersonMiniCard({ person, relation }: { person: PersonBrief; relation: s
           <img
             src={mediaUrl(person.photo)}
             alt=""
+            loading="lazy"
             className="h-11 w-11 rounded-full object-cover bg-muted shrink-0"
           />
           <div className="min-w-0">

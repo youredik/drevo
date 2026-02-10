@@ -65,6 +65,12 @@ function PersonEditor() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [bio, setBio] = useState("");
   const [bioLoaded, setBioLoaded] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const updateForm = (updates: Partial<typeof form>) => {
+    setForm((prev) => ({ ...prev, ...updates }));
+    setDirty(true);
+  };
 
   // Dialogs
   const [deletePhotoName, setDeletePhotoName] = useState<string | null>(null);
@@ -108,6 +114,16 @@ function PersonEditor() {
     }).catch((e) => toast.error(e.message || "Ошибка загрузки")).finally(() => setLoading(false));
   }, [id, canEdit]);
 
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty]);
+
   async function handleSave() {
     if (!form.firstName.trim() && !form.lastName.trim()) {
       toast.error("Укажите имя или фамилию");
@@ -144,6 +160,7 @@ function PersonEditor() {
       }
 
       toast.success("Сохранено!");
+      setDirty(false);
       // Reload data
       const d = await api.getPerson(id);
       setData(d);
@@ -161,6 +178,7 @@ function PersonEditor() {
     try {
       await api.saveBio(id, bio);
       toast.success("Биография сохранена!");
+      setDirty(false);
     } catch (e: any) {
       toast.error(e.message || "Ошибка");
     } finally {
@@ -182,12 +200,26 @@ function PersonEditor() {
 
   async function handleRemoveSpouse() {
     if (!removeSpouseId) return;
+    const removedId = removeSpouseId;
+    const removedSpouse = spouses.find((s) => s.id === removedId);
     setRemovingSpouse(true);
     try {
-      await api.removeSpouse(id, removeSpouseId);
-      setSpouses((prev) => prev.filter((s) => s.id !== removeSpouseId));
+      await api.removeSpouse(id, removedId);
+      setSpouses((prev) => prev.filter((s) => s.id !== removedId));
       setRemoveSpouseId(null);
-      toast.success("Супруг(а) удалён(а)");
+      toast.success("Супруг(а) удалён(а)", {
+        action: {
+          label: "Отменить",
+          onClick: async () => {
+            try {
+              await api.addSpouse(id, removedId);
+              const d = await api.getPerson(id);
+              setSpouses(d.spouses || []);
+              toast.success("Связь восстановлена");
+            } catch { toast.error("Не удалось отменить"); }
+          },
+        },
+      });
     } catch (e: any) { toast.error(e.message || "Ошибка"); }
     finally { setRemovingSpouse(false); }
   }
@@ -206,12 +238,25 @@ function PersonEditor() {
 
   async function handleRemoveChild() {
     if (!removeChildId) return;
+    const removedId = removeChildId;
     setRemovingChild(true);
     try {
-      await api.removeChild(id, removeChildId);
-      setChildren((prev) => prev.filter((c) => c.id !== removeChildId));
+      await api.removeChild(id, removedId);
+      setChildren((prev) => prev.filter((c) => c.id !== removedId));
       setRemoveChildId(null);
-      toast.success("Ребёнок удалён из списка");
+      toast.success("Ребёнок удалён из списка", {
+        action: {
+          label: "Отменить",
+          onClick: async () => {
+            try {
+              await api.addChild(id, removedId);
+              const d = await api.getPerson(id);
+              setChildren(d.children || []);
+              toast.success("Связь восстановлена");
+            } catch { toast.error("Не удалось отменить"); }
+          },
+        },
+      });
     } catch (e: any) { toast.error(e.message || "Ошибка"); }
     finally { setRemovingChild(false); }
   }
@@ -266,6 +311,7 @@ function PersonEditor() {
         <h1 className="text-xl font-bold flex-1">
           Редактирование: {data.person.lastName} {data.person.firstName}
           <Badge variant="secondary" className="ml-2">ID: {id}</Badge>
+          {dirty && <Badge variant="outline" className="text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-600">Не сохранено</Badge>}
         </h1>
         <Link href={`/person?id=${id}`}>
           <Button variant="outline" size="sm" className="gap-2"><Eye className="h-4 w-4" /> Просмотр</Button>
@@ -287,16 +333,16 @@ function PersonEditor() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="field-lastName">Фамилия</Label>
-                  <Input id="field-lastName" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                  <Input id="field-lastName" value={form.lastName} onChange={(e) => updateForm({ lastName: e.target.value })} />
                 </div>
                 <div>
                   <Label htmlFor="field-firstName">Имя</Label>
-                  <Input id="field-firstName" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                  <Input id="field-firstName" value={form.firstName} onChange={(e) => updateForm({ firstName: e.target.value })} />
                 </div>
               </div>
               <div>
                 <Label htmlFor="field-sex">Пол</Label>
-                <Select value={form.sex} onValueChange={(v) => setForm({ ...form, sex: v })}>
+                <Select value={form.sex} onValueChange={(v) => updateForm({ sex: v })}>
                   <SelectTrigger id="field-sex"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1">Мужской</SelectItem>
@@ -307,43 +353,43 @@ function PersonEditor() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="field-birthDay">Дата рождения (ДД.ММ.ГГГГ)</Label>
-                  <Input id="field-birthDay" value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} placeholder="01.01.1990" />
+                  <Input id="field-birthDay" value={form.birthDay} onChange={(e) => updateForm({ birthDay: e.target.value })} placeholder="01.01.1990" />
                 </div>
                 <div>
                   <Label htmlFor="field-birthPlace">Место рождения</Label>
-                  <Input id="field-birthPlace" value={form.birthPlace} onChange={(e) => setForm({ ...form, birthPlace: e.target.value })} />
+                  <Input id="field-birthPlace" value={form.birthPlace} onChange={(e) => updateForm({ birthPlace: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="field-deathDay">Дата смерти</Label>
-                  <Input id="field-deathDay" value={form.deathDay} onChange={(e) => setForm({ ...form, deathDay: e.target.value })} placeholder="Пусто = жив" />
+                  <Input id="field-deathDay" value={form.deathDay} onChange={(e) => updateForm({ deathDay: e.target.value })} placeholder="Пусто = жив" />
                 </div>
                 <div>
                   <Label htmlFor="field-deathPlace">Место смерти</Label>
-                  <Input id="field-deathPlace" value={form.deathPlace} onChange={(e) => setForm({ ...form, deathPlace: e.target.value })} />
+                  <Input id="field-deathPlace" value={form.deathPlace} onChange={(e) => updateForm({ deathPlace: e.target.value })} />
                 </div>
               </div>
               <div>
                 <Label htmlFor="field-address">Адрес</Label>
-                <Input id="field-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                <Input id="field-address" value={form.address} onChange={(e) => updateForm({ address: e.target.value })} />
               </div>
               <div>
                 <Label htmlFor="field-marryDay">Дата свадьбы</Label>
-                <Input id="field-marryDay" value={form.marryDay} onChange={(e) => setForm({ ...form, marryDay: e.target.value })} placeholder="ДД.ММ.ГГГГ" />
+                <Input id="field-marryDay" value={form.marryDay} onChange={(e) => updateForm({ marryDay: e.target.value })} placeholder="ДД.ММ.ГГГГ" />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="field-orderByDad">Порядок (отец)</Label>
-                  <Input id="field-orderByDad" type="number" value={form.orderByDad} onChange={(e) => setForm({ ...form, orderByDad: e.target.value })} />
+                  <Input id="field-orderByDad" type="number" value={form.orderByDad} onChange={(e) => updateForm({ orderByDad: e.target.value })} />
                 </div>
                 <div>
                   <Label htmlFor="field-orderByMom">Порядок (мать)</Label>
-                  <Input id="field-orderByMom" type="number" value={form.orderByMom} onChange={(e) => setForm({ ...form, orderByMom: e.target.value })} />
+                  <Input id="field-orderByMom" type="number" value={form.orderByMom} onChange={(e) => updateForm({ orderByMom: e.target.value })} />
                 </div>
                 <div>
                   <Label htmlFor="field-orderBySpouse">Порядок (супруг)</Label>
-                  <Input id="field-orderBySpouse" type="number" value={form.orderBySpouse} onChange={(e) => setForm({ ...form, orderBySpouse: e.target.value })} />
+                  <Input id="field-orderBySpouse" type="number" value={form.orderBySpouse} onChange={(e) => updateForm({ orderBySpouse: e.target.value })} />
                 </div>
               </div>
               <div className="flex justify-end pt-4">
@@ -434,7 +480,7 @@ function PersonEditor() {
                   {photos.map((photo) => (
                     <div key={photo} className="relative group">
                       <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted">
-                        <img src={mediaUrl(photo)} alt="" className="w-full h-full object-cover" />
+                        <img src={mediaUrl(photo)} alt="" className="w-full h-full object-cover" loading="lazy" />
                       </div>
                       <button
                         className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -458,7 +504,7 @@ function PersonEditor() {
             <CardContent className="space-y-4">
               <Textarea
                 value={bio}
-                onChange={(e) => setBio(e.target.value)}
+                onChange={(e) => { setBio(e.target.value); setDirty(true); }}
                 rows={12}
                 placeholder="Текст биографии..."
               />

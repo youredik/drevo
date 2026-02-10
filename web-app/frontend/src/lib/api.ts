@@ -363,6 +363,8 @@ export const api = {
 
   exportCsv: () => requestText("/api/admin/export"),
 
+  exportGedcom: () => requestText("/api/admin/export-gedcom"),
+
   importCsv: (csv: string) =>
     request<{ ok: boolean; count: number }>("/api/admin/import", {
       method: "POST",

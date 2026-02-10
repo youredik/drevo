@@ -184,6 +184,7 @@ function PersonChip({ person, small = false }: { person: any; small?: boolean })
       <img
         src={mediaUrl(person.photo)}
         alt=""
+        loading="lazy"
         className={`rounded-full object-cover bg-muted shrink-0 ${small ? "h-8 w-8" : "h-10 w-10"}`}
       />
       <div>

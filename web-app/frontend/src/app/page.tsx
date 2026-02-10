@@ -91,7 +91,7 @@ export default function HomePage() {
               <TreePine className="h-9 w-9 text-primary" />
             </div>
           </div>
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-3">
+          <h1 className="text-responsive-hero font-bold tracking-tight mb-3">
             Семейное древо
           </h1>
           <p className="text-muted-foreground text-lg mb-8">
@@ -140,7 +140,7 @@ export default function HomePage() {
       {/* Upcoming events */}
       <section className="mb-12">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Ближайшие события</h2>
+          <h2 className="text-responsive-title font-semibold">Ближайшие события</h2>
           <Link href="/events" prefetch={false}>
             <Button variant="ghost" size="sm" className="gap-1">
               Все события
@@ -181,6 +181,7 @@ export default function HomePage() {
                       <img
                         src={mediaUrl(event.photo)}
                         alt={`${event.lastName} ${event.firstName}`}
+                        loading="lazy"
                         className="h-14 w-14 rounded-full object-cover bg-muted shrink-0"
                       />
                       <div className="flex-1 min-w-0">

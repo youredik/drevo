@@ -892,4 +892,78 @@ export class DataRepository {
     }
     return lines.join("\n");
   }
+
+  // ─── GEDCOM export ─────────────────────────────────────
+
+  exportToGedcom(): string {
+    const lines: string[] = [];
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+    const toGedcomDate = (dateStr: string): string => {
+      const parts = dateStr.split(".");
+      if (parts.length === 3) {
+        const monthIdx = parseInt(parts[1]) - 1;
+        if (monthIdx >= 0 && monthIdx < 12) {
+          return `${parseInt(parts[0])} ${months[monthIdx]} ${parts[2]}`;
+        }
+      }
+      if (/^\d{4}$/.test(dateStr)) return dateStr;
+      return dateStr;
+    };
+
+    // Build family map first
+    const familyMap = new Map<string, { id: number; husbId?: number; wifeId?: number; childIds: number[] }>();
+    let nextFamId = 1;
+
+    for (const p of this.persons.values()) {
+      if (p.fatherId || p.motherId) {
+        const famKey = `${p.fatherId || 0}-${p.motherId || 0}`;
+        if (!familyMap.has(famKey)) {
+          familyMap.set(famKey, { id: nextFamId++, husbId: p.fatherId || undefined, wifeId: p.motherId || undefined, childIds: [] });
+        }
+        familyMap.get(famKey)!.childIds.push(p.id);
+      }
+    }
+
+    // Header
+    lines.push("0 HEAD", "1 SOUR Drevo", "2 VERS 1.0", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8");
+
+    // Individuals
+    for (const p of this.persons.values()) {
+      lines.push(`0 @I${p.id}@ INDI`);
+      lines.push(`1 NAME ${p.firstName} /${p.lastName}/`);
+      lines.push(`1 SEX ${p.sex === 1 ? "M" : "F"}`);
+      if (p.birthDay) {
+        lines.push("1 BIRT");
+        lines.push(`2 DATE ${toGedcomDate(p.birthDay)}`);
+        if (p.birthPlace) lines.push(`2 PLAC ${p.birthPlace}`);
+      }
+      if (p.deathDay) {
+        lines.push("1 DEAT");
+        lines.push(`2 DATE ${toGedcomDate(p.deathDay)}`);
+        if (p.deathPlace) lines.push(`2 PLAC ${p.deathPlace}`);
+      }
+      if (p.address) lines.push("1 RESI", `2 ADDR ${p.address}`);
+      // FAMC
+      if (p.fatherId || p.motherId) {
+        const fam = familyMap.get(`${p.fatherId || 0}-${p.motherId || 0}`);
+        if (fam) lines.push(`1 FAMC @F${fam.id}@`);
+      }
+      // FAMS
+      for (const [, fam] of familyMap) {
+        if (fam.husbId === p.id || fam.wifeId === p.id) lines.push(`1 FAMS @F${fam.id}@`);
+      }
+    }
+
+    // Families
+    for (const [, fam] of familyMap) {
+      lines.push(`0 @F${fam.id}@ FAM`);
+      if (fam.husbId) lines.push(`1 HUSB @I${fam.husbId}@`);
+      if (fam.wifeId) lines.push(`1 WIFE @I${fam.wifeId}@`);
+      for (const cid of fam.childIds) lines.push(`1 CHIL @I${cid}@`);
+    }
+
+    lines.push("0 TRLR");
+    return lines.join("\n");
+  }
 }

@@ -425,6 +425,13 @@ app.get("/api/admin/export", authMiddleware("admin"), (_req, res) => {
   res.send(csv);
 });
 
+app.get("/api/admin/export-gedcom", authMiddleware("admin"), (_req, res) => {
+  const gedcom = repo.exportToGedcom();
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Content-Disposition", "attachment; filename=drevo-export.ged");
+  res.send(gedcom);
+});
+
 // ─── Start ────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT || "3001");

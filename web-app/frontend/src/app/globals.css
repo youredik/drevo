@@ -189,3 +189,35 @@
 .dark .hero-gradient {
   background: radial-gradient(ellipse at 50% 0%, oklch(0.60 0.14 150 / 0.15) 0%, transparent 70%);
 }
+
+/* Responsive typography */
+.text-responsive-hero {
+  font-size: clamp(1.75rem, 4vw + 0.5rem, 3rem);
+  line-height: 1.1;
+}
+.text-responsive-title {
+  font-size: clamp(1.25rem, 2.5vw + 0.5rem, 2rem);
+  line-height: 1.2;
+}
+.text-responsive-subtitle {
+  font-size: clamp(0.875rem, 1.5vw + 0.25rem, 1.125rem);
+  line-height: 1.4;
+}
+
+/* Focus visible outline for keyboard nav */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Lazy image fade-in */
+img[loading="lazy"] {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* Service worker update banner */
+.sw-update-banner {
+  @apply fixed bottom-24 md:bottom-8 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-card border shadow-lg rounded-xl p-4;
+}

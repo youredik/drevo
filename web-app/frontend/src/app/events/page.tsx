@@ -138,6 +138,7 @@ export default function EventsPage() {
             <img
               src={mediaUrl(event.photo)}
               alt={`${event.lastName} ${event.firstName}`}
+              loading="lazy"
               className="h-12 w-12 rounded-full object-cover bg-muted shrink-0"
             />
             <div className="flex-1 min-w-0">

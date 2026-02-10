@@ -661,6 +661,24 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       };
     }
 
+    // ── GET /admin/export-gedcom — Export GEDCOM ──
+    if (method === "GET" && apiPath === "/admin/export-gedcom") {
+      const auth = requireRole(headers, "admin");
+      if ("statusCode" in auth) return auth;
+
+      const gedcom = r.exportToGedcom();
+      return {
+        statusCode: 200,
+        headers: {
+          ...CORS,
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Disposition": "attachment; filename=drevo-export.ged",
+        },
+        body: gedcom,
+        isBase64Encoded: false,
+      };
+    }
+
     // ── POST /admin/import — Import CSV ──
     if (method === "POST" && apiPath === "/admin/import") {
       const auth = requireRole(headers, "admin");
