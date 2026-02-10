@@ -63,8 +63,10 @@ jobs:
         id: ydb
         run: |
           YDB_INFO=$(yc ydb database get drevo-db --format json)
-          echo "endpoint=$(echo $YDB_INFO | jq -r '.endpoint')" >> $GITHUB_OUTPUT
-          echo "database=$(echo $YDB_INFO | jq -r '.database_path // .name')" >> $GITHUB_OUTPUT
+          ENDPOINT=$(echo $YDB_INFO | jq -r '.endpoint')
+          echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
+          DATABASE=$(echo "$ENDPOINT" | sed 's/.*database=\(.*\)/\1/')
+          echo "database=$DATABASE" >> $GITHUB_OUTPUT
 
       - name: Get Service Account ID
         id: sa
@@ -83,7 +85,7 @@ jobs:
             --source-path=web-app/functions/dist/api.zip \
             --service-account-id=${{ steps.sa.outputs.id }} \
             --environment="JWT_SECRET=${{ secrets.JWT_SECRET }},YDB_ENDPOINT=${{ steps.ydb.outputs.endpoint }},YDB_DATABASE=${{ steps.ydb.outputs.database }},MEDIA_MOUNT=/mnt/media" \
-            --storage-mounts="mount-point-name=media,bucket=${{ env.MEDIA_BUCKET }},prefix=,read-only=false"
+            --storage-mounts="mount-point=media,bucket=${{ env.MEDIA_BUCKET }},prefix=,read-only=false"
 
       # ─── Deploy SPA to Object Storage ────────────────────
       - name: Upload SPA
