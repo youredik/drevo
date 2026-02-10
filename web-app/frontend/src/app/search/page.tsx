@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { api, mediaUrl } from "@/lib/api";
 
 export default function SearchPage() {
@@ -21,6 +22,8 @@ function SearchContent() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [sexFilter, setSexFilter] = useState<"all" | "male" | "female">("all");
+  const [aliveFilter, setAliveFilter] = useState<"all" | "alive" | "dead">("all");
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -64,6 +67,15 @@ function SearchContent() {
     return labels[field] || field;
   };
 
+  const filteredResults = results.filter((r: any) => {
+    if (sexFilter === "male" && r.sex !== 1) return false;
+    if (sexFilter === "female" && r.sex !== 0) return false;
+    const isAlive = !r.deathDay || r.deathDay.trim() === "";
+    if (aliveFilter === "alive" && !isAlive) return false;
+    if (aliveFilter === "dead" && isAlive) return false;
+    return true;
+  });
+
   return (
     <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
       <h1 className="text-2xl font-bold mb-6">Поиск</h1>
@@ -79,6 +91,38 @@ function SearchContent() {
         />
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[
+          { key: "all" as const, label: "Все" },
+          { key: "male" as const, label: "Мужчины" },
+          { key: "female" as const, label: "Женщины" },
+        ].map((f) => (
+          <Button
+            key={f.key}
+            variant={sexFilter === f.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSexFilter(f.key)}
+          >
+            {f.label}
+          </Button>
+        ))}
+        <div className="w-px bg-border mx-1" />
+        {[
+          { key: "all" as const, label: "Все" },
+          { key: "alive" as const, label: "Живые" },
+          { key: "dead" as const, label: "Умершие" },
+        ].map((f) => (
+          <Button
+            key={f.key}
+            variant={aliveFilter === f.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setAliveFilter(f.key)}
+          >
+            {f.label}
+          </Button>
+        ))}
+      </div>
+
       {loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
@@ -87,13 +131,13 @@ function SearchContent() {
 
       {!loading && searched && (
         <p className="text-sm text-muted-foreground mb-4">
-          {results.length > 0 ? `Найдено: ${results.length}` : "Ничего не найдено"}
+          {results.length > 0 ? `Найдено: ${filteredResults.length} из ${results.length}` : "Ничего не найдено"}
         </p>
       )}
 
       {!loading && (
         <div className="space-y-2">
-          {results.map((r: any) => {
+          {filteredResults.map((r: any) => {
             const isAlive = !r.deathDay || r.deathDay.trim() === "";
             return (
               <Link key={r.id} href={`/person?id=${r.id}`}>
@@ -133,4 +177,3 @@ function SearchContent() {
     </div>
   );
 }
-

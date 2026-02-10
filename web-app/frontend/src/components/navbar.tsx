@@ -18,6 +18,8 @@ import {
   Sun,
   Moon,
   ClipboardList,
+  Heart,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -37,6 +39,7 @@ const navItems = [
   { href: "/search", label: "Поиск", icon: Search },
   { href: "/events", label: "События", icon: CalendarDays },
   { href: "/tree", label: "Древо", icon: GitFork },
+  { href: "/favorites", label: "Избранное", icon: Heart },
   { href: "/stats", label: "Статистика", icon: BarChart3 },
 ];
 
@@ -123,6 +126,12 @@ export function Navbar() {
                           Пользователи
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/audit">
+                          <Shield className="h-4 w-4 mr-2" />
+                          Журнал
+                        </Link>
+                      </DropdownMenuItem>
                     </>
                   )}
                   <DropdownMenuSeparator />
@@ -147,7 +156,7 @@ export function Navbar() {
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md">
         <div className="flex items-center justify-around h-16">
-          {navItems.slice(0, 4).map((item) => {
+          {navItems.slice(0, 5).map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -206,6 +215,12 @@ export function Navbar() {
                           <Button variant="ghost" className="w-full justify-start gap-3">
                             <Users className="h-5 w-5" />
                             Пользователи
+                          </Button>
+                        </Link>
+                        <Link href="/admin/audit" onClick={() => setOpen(false)}>
+                          <Button variant="ghost" className="w-full justify-start gap-3">
+                            <Shield className="h-5 w-5" />
+                            Журнал
                           </Button>
                         </Link>
                       </>

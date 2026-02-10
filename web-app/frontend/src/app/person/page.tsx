@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,6 +12,9 @@ import {
   GitFork,
   BookOpen,
   Pencil,
+  Heart,
+  X,
+  ZoomIn,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +32,8 @@ function PersonContent() {
   const [bio, setBio] = useState<string | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isFav, setIsFav] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -43,7 +49,37 @@ function PersonContent() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    api.checkFavorite(id).then(d => setIsFav(d.isFavorite)).catch(() => {});
   }, [id]);
+
+  const toggleFavorite = async () => {
+    try {
+      if (isFav) {
+        await api.removeFavorite(id);
+        setIsFav(false);
+      } else {
+        await api.addFavorite(id);
+        setIsFav(true);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const photos = data?.photos ?? [];
+
+  const nextPhoto = () => setPhotoIndex((i: number) => (i + 1) % photos.length);
+  const prevPhoto = () => setPhotoIndex((i: number) => (i - 1 + photos.length) % photos.length);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (e.key === "ArrowLeft") prevPhoto();
+      if (e.key === "ArrowRight") nextPhoto();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [lightboxOpen, photos.length]);
 
   if (loading) {
     return (
@@ -66,11 +102,8 @@ function PersonContent() {
     );
   }
 
-  const { person, father, mother, spouses, children, photos, age, zodiac } = data;
+  const { person, father, mother, spouses, children, age, zodiac } = data;
   const isAlive = !person.deathDay || person.deathDay.trim() === "";
-
-  const nextPhoto = () => setPhotoIndex((i: number) => (i + 1) % photos.length);
-  const prevPhoto = () => setPhotoIndex((i: number) => (i - 1 + photos.length) % photos.length);
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
@@ -104,17 +137,26 @@ function PersonContent() {
             </Button>
           </Link>
         )}
+        <Button variant="outline" size="sm" className="gap-2" onClick={toggleFavorite}>
+          <Heart className={`h-4 w-4 ${isFav ? "fill-red-500 text-red-500" : ""}`} />
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-6">
         {/* Photo */}
         <div className="relative">
-          <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-muted">
+          <div
+            className="aspect-[3/4] rounded-2xl overflow-hidden bg-muted cursor-pointer group"
+            onClick={() => setLightboxOpen(true)}
+          >
             <img
               src={mediaUrl(photos[photoIndex])}
               alt={`${person.lastName} ${person.firstName}`}
               className="w-full h-full object-cover"
             />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+              <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+            </div>
           </div>
           {photos.length > 1 && (
             <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2">
@@ -226,6 +268,51 @@ function PersonContent() {
           </Tabs>
         </div>
       </div>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 text-white hover:bg-white/20 z-10"
+              onClick={() => setLightboxOpen(false)}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+            {photos.length > 1 && (
+              <>
+                <Button variant="ghost" size="icon" className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); prevPhoto(); }}>
+                  <ChevronLeft className="h-8 w-8" />
+                </Button>
+                <Button variant="ghost" size="icon" className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); nextPhoto(); }}>
+                  <ChevronRight className="h-8 w-8" />
+                </Button>
+              </>
+            )}
+            <motion.img
+              key={photoIndex}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              src={mediaUrl(photos[photoIndex])}
+              alt=""
+              className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className="absolute bottom-4 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
+              {photoIndex + 1} / {photos.length}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

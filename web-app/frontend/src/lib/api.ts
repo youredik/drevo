@@ -97,6 +97,18 @@ export const api = {
 
   getFavorites: () => request<{ favorites: any[] }>("/api/favorites"),
 
+  addFavorite: (personId: number) =>
+    request<{ slot: number; personId: number }>("/api/favorites", {
+      method: "POST",
+      body: JSON.stringify({ personId }),
+    }),
+
+  removeFavorite: (personId: number) =>
+    request<{ removed: boolean }>(`/api/favorites/${personId}`, { method: "DELETE" }),
+
+  checkFavorite: (personId: number) =>
+    request<{ isFavorite: boolean }>(`/api/favorites/check/${personId}`),
+
   login: (login: string, password: string) =>
     request<{ token: string; user: { id: string; login: string; role: string } }>(
       "/api/auth/login",
@@ -197,6 +209,9 @@ export const api = {
     }),
 
   // ─── Admin: Misc ─────────────────────────────────────
+
+  getAuditLogs: (limit = 50) =>
+    request<{ logs: any[] }>(`/api/admin/audit-logs?limit=${limit}`),
 
   validate: () => request<{ issues: any[]; counts: Record<string, number> }>("/api/admin/validate"),
 

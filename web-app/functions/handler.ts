@@ -9,7 +9,7 @@ import {
 import { isYdbConfigured } from "./shared/ydb-client.js";
 import { ensureTables, migrateFromCsv, migrateFromCsvString } from "./shared/ydb-schema.js";
 import { parsePersonsCsvString } from "./shared/csv-parser.js";
-import { loadAllFromYdb, upsertPerson, deletePerson as ydbDeletePerson, addSpouse, removeSpouse, addChild, removeChild, loadConfig, setConfigValue } from "./shared/ydb-repository.js";
+import { loadAllFromYdb, upsertPerson, deletePerson as ydbDeletePerson, addSpouse, removeSpouse, addChild, removeChild, loadConfig, setConfigValue, upsertFavorite, deleteFavoriteBySlot, insertAuditLog, getAuditLogs } from "./shared/ydb-repository.js";
 import type { Person, PersonFormData } from "./shared/types.js";
 
 // ─── Paths ──────────────────────────────────────────────
@@ -143,6 +143,16 @@ function parseBody<T>(event: YcEvent): T {
   return JSON.parse(raw);
 }
 
+async function auditLog(user: { id: string; login: string }, action: string, resourceType: string, resourceId: string, details?: string) {
+  if (useYdb) {
+    try {
+      await insertAuditLog({ userId: user.id, userLogin: user.login, action, resourceType, resourceId, details });
+    } catch (e) {
+      console.error("Audit log failed:", e);
+    }
+  }
+}
+
 // ─── Handler ────────────────────────────────────────────
 export async function handler(event: YcEvent, _context: unknown): Promise<YcResponse> {
   const r = await init();
@@ -246,6 +256,31 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       return json({ favorites: persons });
     }
 
+    // ── POST /favorites ── Add to favorites
+    if (method === "POST" && apiPath === "/favorites") {
+      const body = parseBody<{ personId: number }>(event);
+      if (!body.personId) return err("Укажите personId", 400);
+      if (!r.getPerson(body.personId)) return err("Человек не найден", 404);
+      const slot = r.addFavorite(body.personId);
+      if (slot < 0) return err("Избранное заполнено (макс. 20)", 400);
+      if (useYdb) await upsertFavorite(slot, body.personId);
+      return json({ slot, personId: body.personId });
+    }
+
+    // ── DELETE /favorites/:personId ── Remove from favorites
+    if (method === "DELETE" && (params = matchPath("/favorites/:personId", apiPath))) {
+      const personId = parseInt(params.personId);
+      const slot = r.removeFavorite(personId);
+      if (slot >= 0 && useYdb) await deleteFavoriteBySlot(slot);
+      return json({ removed: slot >= 0 });
+    }
+
+    // ── GET /favorites/check/:personId ── Check if person is favorite
+    if (method === "GET" && (params = matchPath("/favorites/check/:personId", apiPath))) {
+      const personId = parseInt(params.personId);
+      return json({ isFavorite: r.isFavorite(personId) });
+    }
+
     // ── GET /media/:filename ──
     if (method === "GET" && apiPath.startsWith("/media/")) {
       const filename = decodeURIComponent(apiPath.slice(7));
@@ -327,6 +362,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       if (person.motherId) r.addChildRelation(person.motherId, id);
 
       if (useYdb) await upsertPerson(person);
+      await auditLog(auth.user, "create", "person", String(id), `${person.lastName} ${person.firstName}`);
       return json({ person }, 201);
     }
 
@@ -369,6 +405,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       });
 
       if (useYdb && updated) await upsertPerson(updated);
+      await auditLog(auth.user, "update", "person", String(id), `${updated?.lastName} ${updated?.firstName}`);
       return json({ person: updated });
     }
 
@@ -380,8 +417,10 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       const id = parseInt(params.id);
       if (!r.getPerson(id)) return err("Человек не найден", 404);
 
+      const personName = r.getPerson(id);
       r.removePerson(id);
       if (useYdb) await ydbDeletePerson(id);
+      await auditLog(auth.user, "delete", "person", String(id), personName ? `${personName.lastName} ${personName.firstName}` : "");
       return json({ deleted: true });
     }
 
@@ -529,6 +568,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
 
       const user = await createUser(body.login, body.password, body.role);
       if (!user) return err("Пользователь с таким логином уже существует", 409);
+      await auditLog(auth.user, "create", "user", user.id, `${body.login} (${body.role})`);
       return json({ user }, 201);
     }
 
@@ -551,6 +591,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
 
       const deleted = await deleteUserById(params.id);
       if (!deleted) return err("Пользователь не найден", 404);
+      await auditLog(auth.user, "delete", "user", params.id);
       return json({ deleted: true });
     }
 
@@ -627,6 +668,18 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
         repo = DataRepository.fromData(persons, [], MEDIA_PATH, INFO_PATH);
         return json({ imported: persons.size, warning: "Данные загружены только в память (YDB не настроен)" });
       }
+    }
+
+    // ── GET /admin/audit-logs — Audit log ──
+    if (method === "GET" && apiPath === "/admin/audit-logs") {
+      const auth = requireRole(headers, "admin");
+      if ("statusCode" in auth) return auth;
+      const limit = parseInt(query.limit) || 50;
+      if (useYdb) {
+        const logs = await getAuditLogs(limit);
+        return json({ logs });
+      }
+      return json({ logs: [] });
     }
 
     // ── 404 ──

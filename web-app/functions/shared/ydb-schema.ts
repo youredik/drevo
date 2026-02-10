@@ -53,6 +53,17 @@ const TABLES = {
     .withColumn(new Column("slot_index", Types.optional(Types.UINT32)))
     .withColumn(new Column("person_id", Types.optional(Types.UINT64)))
     .withPrimaryKey("slot_index"),
+
+  audit_logs: new TableDescription()
+    .withColumn(new Column("id", Types.optional(Types.UTF8)))
+    .withColumn(new Column("timestamp", Types.optional(Types.UTF8)))
+    .withColumn(new Column("user_id", Types.optional(Types.UTF8)))
+    .withColumn(new Column("user_login", Types.optional(Types.UTF8)))
+    .withColumn(new Column("action", Types.optional(Types.UTF8)))
+    .withColumn(new Column("resource_type", Types.optional(Types.UTF8)))
+    .withColumn(new Column("resource_id", Types.optional(Types.UTF8)))
+    .withColumn(new Column("details", Types.optional(Types.UTF8)))
+    .withPrimaryKey("id"),
 };
 
 // ─── Ensure tables exist ────────────────────────────────
@@ -237,10 +248,10 @@ async function upsertPersonsBatch(driver: any, batch: Person[]): Promise<void> {
   const values = batch
     .map(
       (p) =>
-        `(${p.id}ul, ${p.sex}ut, "${esc(p.firstName)}"u, "${esc(p.lastName)}"u, ` +
-        `${p.fatherId}ul, ${p.motherId}ul, "${esc(p.birthPlace)}"u, "${esc(p.birthDay)}"u, ` +
+        `(${safeNum(p.id)}ul, ${safeNum(p.sex)}ut, "${esc(p.firstName)}"u, "${esc(p.lastName)}"u, ` +
+        `${safeNum(p.fatherId)}ul, ${safeNum(p.motherId)}ul, "${esc(p.birthPlace)}"u, "${esc(p.birthDay)}"u, ` +
         `"${esc(p.deathPlace)}"u, "${esc(p.deathDay)}"u, "${esc(p.address)}"u, ` +
-        `${p.orderByDad}u, ${p.orderByMom}u, ${p.orderBySpouse}u, "${esc(p.marryDay)}"u)`
+        `${safeNum(p.orderByDad)}u, ${safeNum(p.orderByMom)}u, ${safeNum(p.orderBySpouse)}u, "${esc(p.marryDay)}"u)`
     )
     .join(",\n");
 
@@ -258,7 +269,7 @@ async function upsertPersonsBatch(driver: any, batch: Person[]): Promise<void> {
 
 async function upsertSpousesBatch(driver: any, batch: { personId: number; spouseId: number }[]): Promise<void> {
   if (batch.length === 0) return;
-  const values = batch.map((r) => `(${r.personId}ul, ${r.spouseId}ul)`).join(", ");
+  const values = batch.map((r) => `(${safeNum(r.personId)}ul, ${safeNum(r.spouseId)}ul)`).join(", ");
   await driver.tableClient.withSession(async (session: any) => {
     await session.executeQuery(`UPSERT INTO spouses (person_id, spouse_id) VALUES ${values};`);
   });
@@ -266,12 +277,25 @@ async function upsertSpousesBatch(driver: any, batch: { personId: number; spouse
 
 async function upsertChildrenBatch(driver: any, batch: { parentId: number; childId: number }[]): Promise<void> {
   if (batch.length === 0) return;
-  const values = batch.map((r) => `(${r.parentId}ul, ${r.childId}ul)`).join(", ");
+  const values = batch.map((r) => `(${safeNum(r.parentId)}ul, ${safeNum(r.childId)}ul)`).join(", ");
   await driver.tableClient.withSession(async (session: any) => {
     await session.executeQuery(`UPSERT INTO children (parent_id, child_id) VALUES ${values};`);
   });
 }
 
 function esc(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  if (typeof s !== 'string') return '';
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t")
+    .replace(/\0/g, "");
+}
+
+function safeNum(val: unknown): number {
+  const n = Number(val);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
 }

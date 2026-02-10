@@ -12,7 +12,7 @@ import {
 } from "./shared/auth.js";
 import { isYdbConfigured } from "./shared/ydb-client.js";
 import { ensureTables, migrateFromCsv } from "./shared/ydb-schema.js";
-import { loadAllFromYdb, upsertPerson, deletePerson as ydbDeletePerson, addSpouse, removeSpouse, addChild, removeChild, loadConfig, setConfigValue } from "./shared/ydb-repository.js";
+import { loadAllFromYdb, upsertPerson, deletePerson as ydbDeletePerson, addSpouse, removeSpouse, addChild, removeChild, loadConfig, setConfigValue, upsertFavorite, deleteFavoriteBySlot, insertAuditLog, getAuditLogs } from "./shared/ydb-repository.js";
 import type { Person, PersonFormData } from "./shared/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -131,6 +131,30 @@ app.get("/api/favorites", (_req, res) => {
   const favIds = repo.getFavorites();
   const persons = favIds.map((id) => repo.getPersonCard(id)).filter((p) => p !== null);
   res.json({ favorites: persons });
+});
+
+// ─── Favorites CRUD ──────────────────────────────────
+
+app.post("/api/favorites", async (req, res) => {
+  const { personId } = req.body;
+  if (!personId) { res.status(400).json({ error: "Укажите personId" }); return; }
+  if (!repo.getPerson(personId)) { res.status(404).json({ error: "Человек не найден" }); return; }
+  const slot = repo.addFavorite(personId);
+  if (slot < 0) { res.status(400).json({ error: "Избранное заполнено (макс. 20)" }); return; }
+  if (useYdb) await upsertFavorite(slot, personId);
+  res.json({ slot, personId });
+});
+
+app.delete("/api/favorites/:personId", async (req, res) => {
+  const personId = parseInt(req.params.personId);
+  const slot = repo.removeFavorite(personId);
+  if (slot >= 0 && useYdb) await deleteFavoriteBySlot(slot);
+  res.json({ removed: slot >= 0 });
+});
+
+app.get("/api/favorites/check/:personId", (req, res) => {
+  const personId = parseInt(req.params.personId);
+  res.json({ isFavorite: repo.isFavorite(personId) });
 });
 
 app.get("/api/media/:filename", (req, res) => {
@@ -374,6 +398,18 @@ app.put("/api/admin/config", authMiddleware("admin"), async (req, res) => {
     }
   }
   res.json({ saved: true });
+});
+
+// ─── Admin: Audit ────────────────────────────────────
+
+app.get("/api/admin/audit-logs", authMiddleware("admin"), async (_req, res) => {
+  if (useYdb) {
+    const limit = parseInt((_req.query.limit as string) || "50");
+    const logs = await getAuditLogs(limit);
+    res.json({ logs });
+  } else {
+    res.json({ logs: [] });
+  }
 });
 
 // ─── Admin: Validate & Export ─────────────────────────

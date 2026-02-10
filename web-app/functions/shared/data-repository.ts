@@ -648,6 +648,30 @@ export class DataRepository {
     return this.favorites;
   }
 
+  addFavorite(personId: number): number {
+    if (this.favorites.includes(personId)) return this.favorites.indexOf(personId);
+    const emptySlot = this.favorites.indexOf(0);
+    if (emptySlot >= 0) {
+      this.favorites[emptySlot] = personId;
+      return emptySlot;
+    }
+    if (this.favorites.length < 20) {
+      this.favorites.push(personId);
+      return this.favorites.length - 1;
+    }
+    return -1;
+  }
+
+  removeFavorite(personId: number): number {
+    const slot = this.favorites.indexOf(personId);
+    if (slot >= 0) this.favorites[slot] = 0;
+    return slot;
+  }
+
+  isFavorite(personId: number): boolean {
+    return this.favorites.includes(personId);
+  }
+
   // ─── Today's events for a person ────────────────────
 
   getPersonTodayEvents(person: Person): { birthday: boolean; memorial: boolean; wedding: boolean } {
