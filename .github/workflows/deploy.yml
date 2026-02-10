@@ -89,7 +89,7 @@ jobs:
             --runtime=nodejs22 \
             --entrypoint=handler.handler \
             --memory=256m \
-            --execution-timeout=10s \
+            --execution-timeout=60s \
             --package-bucket-name=${{ env.MEDIA_BUCKET }} \
             --package-object-name=deploy/api.zip \
             --service-account-id=${{ steps.sa.outputs.id }} \

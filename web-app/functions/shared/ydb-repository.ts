@@ -44,54 +44,81 @@ function esc(s: string): string {
 
 // ─── Load all data from YDB (for in-memory cache) ───────
 
+// Paginated query helper (YDB limits data queries to ~1000 rows)
+async function queryAllRows(driver: any, query: string, orderCol: string): Promise<any[]> {
+  const PAGE_SIZE = 1000;
+  const allRows: any[] = [];
+  let lastId = 0;
+
+  while (true) {
+    const rows = await driver.tableClient.withSession(async (session: any) => {
+      const result = await session.executeQuery(
+        `${query} WHERE ${orderCol} > ${lastId}ul ORDER BY ${orderCol} LIMIT ${PAGE_SIZE};`
+      );
+      return result.resultSets[0]?.rows || [];
+    });
+
+    if (rows.length === 0) break;
+    allRows.push(...rows);
+    lastId = Number(rows[rows.length - 1].items?.[0]?.uint64Value || 0);
+    if (rows.length < PAGE_SIZE) break;
+  }
+
+  return allRows;
+}
+
 export async function loadAllFromYdb(): Promise<{
   persons: Map<number, Person>;
   favorites: number[];
 }> {
   const driver = await getYdbDriver();
 
-  // Load spouses
+  // Load spouses (paginate by person_id)
   const spouseMap = new Map<number, number[]>();
-  await driver.tableClient.withSession(async (session) => {
-    const result = await session.executeQuery("SELECT person_id, spouse_id FROM spouses;");
-    for (const row of result.resultSets[0]?.rows || []) {
-      const personId = Number(row.items?.[0]?.uint64Value || 0);
-      const spouseId = Number(row.items?.[1]?.uint64Value || 0);
-      if (!spouseMap.has(personId)) spouseMap.set(personId, []);
-      spouseMap.get(personId)!.push(spouseId);
-    }
-  });
+  const spouseRows = await queryAllRows(
+    driver,
+    "SELECT person_id, spouse_id FROM spouses",
+    "person_id"
+  );
+  for (const row of spouseRows) {
+    const personId = Number(row.items?.[0]?.uint64Value || 0);
+    const spouseId = Number(row.items?.[1]?.uint64Value || 0);
+    if (!spouseMap.has(personId)) spouseMap.set(personId, []);
+    spouseMap.get(personId)!.push(spouseId);
+  }
 
-  // Load children
+  // Load children (paginate by parent_id)
   const childMap = new Map<number, number[]>();
-  await driver.tableClient.withSession(async (session) => {
-    const result = await session.executeQuery("SELECT parent_id, child_id FROM children;");
-    for (const row of result.resultSets[0]?.rows || []) {
-      const parentId = Number(row.items?.[0]?.uint64Value || 0);
-      const childId = Number(row.items?.[1]?.uint64Value || 0);
-      if (!childMap.has(parentId)) childMap.set(parentId, []);
-      childMap.get(parentId)!.push(childId);
-    }
-  });
+  const childRows = await queryAllRows(
+    driver,
+    "SELECT parent_id, child_id FROM children",
+    "parent_id"
+  );
+  for (const row of childRows) {
+    const parentId = Number(row.items?.[0]?.uint64Value || 0);
+    const childId = Number(row.items?.[1]?.uint64Value || 0);
+    if (!childMap.has(parentId)) childMap.set(parentId, []);
+    childMap.get(parentId)!.push(childId);
+  }
 
-  // Load persons
+  // Load persons (paginate by id)
   const persons = new Map<number, Person>();
-  await driver.tableClient.withSession(async (session) => {
-    const result = await session.executeQuery(`
-      SELECT id, sex, first_name, last_name, father_id, mother_id,
-             birth_place, birth_day, death_place, death_day, address,
-             order_by_dad, order_by_mom, order_by_spouse, marry_day
-      FROM persons;
-    `);
-    for (const row of result.resultSets[0]?.rows || []) {
-      const person = rowToPerson(row, spouseMap, childMap);
-      persons.set(person.id, person);
-    }
-  });
+  const personRows = await queryAllRows(
+    driver,
+    `SELECT id, sex, first_name, last_name, father_id, mother_id,
+            birth_place, birth_day, death_place, death_day, address,
+            order_by_dad, order_by_mom, order_by_spouse, marry_day
+     FROM persons`,
+    "id"
+  );
+  for (const row of personRows) {
+    const person = rowToPerson(row, spouseMap, childMap);
+    persons.set(person.id, person);
+  }
 
-  // Load favorites
+  // Load favorites (small table, single query is fine)
   const favorites: number[] = [];
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSession(async (session: any) => {
     const result = await session.executeQuery("SELECT slot_index, person_id FROM favorites ORDER BY slot_index;");
     for (const row of result.resultSets[0]?.rows || []) {
       favorites.push(Number(row.items?.[1]?.uint64Value || 0));
