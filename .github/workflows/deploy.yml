@@ -64,7 +64,7 @@ jobs:
         run: |
           YDB_INFO=$(yc ydb database get drevo-db --format json)
           FULL_ENDPOINT=$(echo $YDB_INFO | jq -r '.endpoint')
-          ENDPOINT=$(echo "$FULL_ENDPOINT" | sed 's|/\?database=.*||')
+          ENDPOINT=$(echo "$FULL_ENDPOINT" | cut -d'?' -f1 | sed 's|/$||')
           echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
           DATABASE=$(echo "$FULL_ENDPOINT" | sed 's/.*database=\(.*\)/\1/')
           echo "database=$DATABASE" >> $GITHUB_OUTPUT
