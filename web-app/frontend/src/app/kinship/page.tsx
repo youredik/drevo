@@ -92,7 +92,17 @@ function KinshipContent() {
         <div className="text-destructive text-sm mb-4 p-3 bg-destructive/10 rounded-lg">{error}</div>
       )}
 
-      {loading && <Skeleton className="h-48 rounded-xl" />}
+      {loading && (
+        <div className="rounded-xl border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-center gap-6">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-6 w-6 rounded" />
+            <Skeleton className="h-10 w-10 rounded-full" />
+          </div>
+          <Skeleton className="h-8 w-40 mx-auto rounded-full" />
+          <Skeleton className="h-4 w-32 mx-auto" />
+        </div>
+      )}
 
       {!loading && result && (
         <div className="space-y-4">
@@ -169,7 +179,7 @@ function PersonChip({ person, small = false }: { person: any; small?: boolean })
   return (
     <Link
       href={`/person?id=${person.id}`}
-      className="flex items-center gap-2 hover:bg-muted rounded-lg px-2 py-1 transition-colors"
+      className="flex items-center gap-2 hover:bg-muted rounded-lg px-2 py-1 transition-colors card-press"
     >
       <img
         src={mediaUrl(person.photo)}

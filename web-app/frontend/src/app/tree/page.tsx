@@ -530,14 +530,19 @@ function TreeContent() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <div key={i} className="rounded-xl border bg-card p-3 flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-12" />
+            </div>
           ))}
         </div>
       ) : !tree ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <GitFork className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            Человек не найден
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <GitFork className="h-16 w-16 mx-auto mb-4 opacity-20" />
+            <p className="text-lg font-medium mb-1">Человек не найден</p>
+            <p className="text-sm">Проверьте ID и попробуйте снова</p>
           </CardContent>
         </Card>
       ) : viewMode === "list" ? (

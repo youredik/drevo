@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   TreePine,
   Search,
@@ -16,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnimatedItem } from "@/components/animated-list";
 import { api, mediaUrl, EventItem } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -76,9 +78,14 @@ export default function HomePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6">
-      {/* Hero */}
-      <section className="py-12 md:py-20 text-center">
-        <div className="max-w-2xl mx-auto">
+      {/* Hero with gradient */}
+      <section className="py-12 md:py-20 text-center relative hero-gradient">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-2xl mx-auto"
+        >
           <div className="flex justify-center mb-6">
             <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <TreePine className="h-9 w-9 text-primary" />
@@ -109,22 +116,24 @@ export default function HomePage() {
               Найти
             </Button>
           </form>
-        </div>
+        </motion.div>
       </section>
 
       {/* Quick actions */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12">
-        {quickActions.map((action) => (
-          <Link key={action.href} href={action.href} prefetch={false}>
-            <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full">
-              <CardContent className="flex flex-col items-center text-center gap-3 py-6">
-                <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <action.icon className={`h-6 w-6 ${action.color}`} />
-                </div>
-                <span className="text-sm font-medium">{action.label}</span>
-              </CardContent>
-            </Card>
-          </Link>
+        {quickActions.map((action, i) => (
+          <AnimatedItem key={action.href} index={i}>
+            <Link href={action.href} prefetch={false}>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full card-press">
+                <CardContent className="flex flex-col items-center text-center gap-3 py-6">
+                  <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <action.icon className={`h-6 w-6 ${action.color}`} />
+                  </div>
+                  <span className="text-sm font-medium">{action.label}</span>
+                </CardContent>
+              </Card>
+            </Link>
+          </AnimatedItem>
         ))}
       </section>
 
@@ -143,47 +152,64 @@ export default function HomePage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-24 rounded-xl" />
+              <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-14 w-14 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : events.length === 0 ? (
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Нет ближайших событий
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <CalendarDays className="h-16 w-16 mx-auto mb-4 opacity-20" />
+              <p className="text-lg font-medium mb-1">Нет ближайших событий</p>
+              <p className="text-sm">Дни рождения и памятные даты появятся здесь</p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {events.map((event, i) => (
-              <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="flex items-center gap-4 py-4">
-                    <img
-                      src={mediaUrl(event.photo)}
-                      alt={`${event.lastName} ${event.firstName}`}
-                      className="h-14 w-14 rounded-full object-cover bg-muted shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {event.lastName} {event.firstName}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary" className={eventTypeColor(event.eventType)}>
-                          {eventTypeLabel(event.eventType)}
-                        </Badge>
-                        {event.yearsCount > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            {event.yearsCount} лет
-                          </span>
-                        )}
+              <AnimatedItem key={`${event.id}-${event.eventType}-${i}`} index={i}>
+                <Link href={`/person?id=${event.id}`} prefetch={false}>
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer card-press">
+                    <CardContent className="flex items-center gap-4 py-4">
+                      <img
+                        src={mediaUrl(event.photo)}
+                        alt={`${event.lastName} ${event.firstName}`}
+                        className="h-14 w-14 rounded-full object-cover bg-muted shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">
+                          {event.lastName} {event.firstName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary" className={eventTypeColor(event.eventType)}>
+                            {eventTypeLabel(event.eventType)}
+                          </Badge>
+                          {event.yearsCount > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {event.yearsCount} лет
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <Badge variant="outline" className="shrink-0">
-                      {daysLabel(event.daysUntil)}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              </Link>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {event.daysUntil === 0 && (
+                          <span className="h-2 w-2 rounded-full bg-emerald-500 pulse-dot" />
+                        )}
+                        <Badge variant="outline">
+                          {daysLabel(event.daysUntil)}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </AnimatedItem>
             ))}
           </div>
         )}

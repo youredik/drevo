@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   TreePine,
   Search,
@@ -33,6 +33,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
+import { api } from "@/lib/api";
 
 const navItems = [
   { href: "/", label: "Главная", icon: TreePine },
@@ -48,6 +49,13 @@ export function Navbar() {
   const { user, logout, isAdmin, canEdit } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
+  const [todayCount, setTodayCount] = useState(0);
+
+  useEffect(() => {
+    api.getEvents(0, false)
+      .then((data) => setTodayCount(data.events.filter((e) => e.daysUntil === 0).length))
+      .catch(() => {});
+  }, []);
 
   // Hide navbar on login page
   if (pathname === "/login") return null;
@@ -74,6 +82,11 @@ export function Navbar() {
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
+                    {item.href === "/events" && todayCount > 0 && (
+                      <span className="h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {todayCount}
+                      </span>
+                    )}
                   </Button>
                 </Link>
               );
@@ -168,7 +181,14 @@ export function Navbar() {
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}
               >
-                <item.icon className="h-5 w-5" />
+                <div className="relative">
+                  <item.icon className="h-5 w-5" />
+                  {item.href === "/events" && todayCount > 0 && (
+                    <span className="absolute -top-1 -right-2 h-3.5 min-w-3.5 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {todayCount}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
             );

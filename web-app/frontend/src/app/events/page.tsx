@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { api, mediaUrl, EventItem } from "@/lib/api";
 import { toast } from "sonner";
+import { AnimatedItem } from "@/components/animated-list";
 
 const MONTH_NAMES = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -130,35 +131,42 @@ export default function EventsPage() {
   };
 
   const renderEventCard = (event: EventItem, i: number) => (
-    <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false}>
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardContent className="flex items-center gap-4 py-3">
-          <img
-            src={mediaUrl(event.photo)}
-            alt={`${event.lastName} ${event.firstName}`}
-            className="h-12 w-12 rounded-full object-cover bg-muted shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">
-              {event.lastName} {event.firstName}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary" className={eventTypeColor(event.eventType)}>
-                {eventTypeLabel(event.eventType)}
-              </Badge>
-              {event.yearsCount > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {event.yearsCount} лет
-                </span>
-              )}
+    <AnimatedItem key={`${event.id}-${event.eventType}-${i}`} index={i}>
+      <Link href={`/person?id=${event.id}`} prefetch={false}>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer card-press">
+          <CardContent className="flex items-center gap-4 py-3">
+            <img
+              src={mediaUrl(event.photo)}
+              alt={`${event.lastName} ${event.firstName}`}
+              className="h-12 w-12 rounded-full object-cover bg-muted shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium truncate">
+                {event.lastName} {event.firstName}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary" className={eventTypeColor(event.eventType)}>
+                  {eventTypeLabel(event.eventType)}
+                </Badge>
+                {event.yearsCount > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {event.yearsCount} лет
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-          <span className="text-sm text-muted-foreground shrink-0">
-            {event.eventDate}
-          </span>
-        </CardContent>
-      </Card>
-    </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              {event.daysUntil === 0 && (
+                <span className="h-2 w-2 rounded-full bg-emerald-500 pulse-dot" />
+              )}
+              <span className="text-sm text-muted-foreground">
+                {event.eventDate}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    </AnimatedItem>
   );
 
   return (
@@ -208,13 +216,23 @@ export default function EventsPage() {
 
           {loading ? (
             <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-3 rounded-xl border">
+                  <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              ))}
             </div>
           ) : events.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>Нет событий в ближайшие {days} дней</p>
+              <CardContent className="py-16 text-center text-muted-foreground">
+                <CalendarDays className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                <p className="text-lg font-medium mb-1">Нет событий</p>
+                <p className="text-sm">В ближайшие {days} дней нет предстоящих событий</p>
               </CardContent>
             </Card>
           ) : (

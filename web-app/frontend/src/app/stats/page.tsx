@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Users, Heart, HeartOff } from "lucide-react";
+import { motion } from "framer-motion";
+import { Users, Heart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnimatedItem } from "@/components/animated-list";
+import { AnimatedCounter } from "@/components/animated-counter";
 import { api, mediaUrl, StatsData } from "@/lib/api";
 
 export default function StatsPage() {
@@ -24,7 +26,13 @@ export default function StatsPage() {
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
         <h1 className="text-2xl font-bold mb-6">Статистика</h1>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
+              <Skeleton className="h-6 w-6 mx-auto rounded-full" />
+              <Skeleton className="h-8 w-16 mx-auto" />
+              <Skeleton className="h-3 w-20 mx-auto" />
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -57,75 +65,95 @@ export default function StatsPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {summaryCards.map((card) => (
-          <Card key={card.label}>
-            <CardContent className="py-4 text-center">
-              <card.icon className={`h-6 w-6 mx-auto mb-2 ${card.color}`} />
-              <p className="text-2xl font-bold">{card.value.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground mt-1">{card.label}</p>
-            </CardContent>
-          </Card>
+        {summaryCards.map((card, i) => (
+          <AnimatedItem key={card.label} index={i}>
+            <Card>
+              <CardContent className="py-4 text-center">
+                <card.icon className={`h-6 w-6 mx-auto mb-2 ${card.color}`} />
+                <p className="text-2xl font-bold">
+                  <AnimatedCounter value={card.value} />
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{card.label}</p>
+              </CardContent>
+            </Card>
+          </AnimatedItem>
         ))}
       </div>
 
       {/* Age distribution */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="text-lg">Распределение по возрасту</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {Object.entries(stats.ageDistribution).map(([range, count]) => (
-              <div key={range} className="flex items-center gap-3">
-                <span className="text-sm w-14 text-right text-muted-foreground">
-                  {ageLabels[range] || range}
-                </span>
-                <div className="flex-1 h-7 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary/70 rounded-full flex items-center justify-end pr-2 transition-all"
-                    style={{ width: `${((count as number) / maxAge) * 100}%`, minWidth: "2rem" }}
-                  >
-                    <span className="text-xs text-primary-foreground font-medium">
-                      {(count as number).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Longest lived */}
-      {stats.longestLived.length > 0 && (
-        <Card>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+      >
+        <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="text-lg">Долгожители (90+ лет)</CardTitle>
+            <CardTitle className="text-lg">Распределение по возрасту</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {stats.longestLived.map((person) => (
-                <a
-                  key={person.id}
-                  href={`/person?id=${person.id}`}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
-                >
-                  <img
-                    src={mediaUrl(person.photo)}
-                    alt=""
-                    className="h-10 w-10 rounded-full object-cover bg-muted shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {person.lastName} {person.firstName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{person.age}</p>
+            <div className="space-y-3">
+              {Object.entries(stats.ageDistribution).map(([range, count], i) => (
+                <div key={range} className="flex items-center gap-3">
+                  <span className="text-sm w-14 text-right text-muted-foreground">
+                    {ageLabels[range] || range}
+                  </span>
+                  <div className="flex-1 h-7 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${((count as number) / maxAge) * 100}%` }}
+                      transition={{ duration: 0.8, delay: 0.3 + i * 0.08, ease: "easeOut" }}
+                      className="h-full bg-primary/70 rounded-full flex items-center justify-end pr-2"
+                      style={{ minWidth: "2rem" }}
+                    >
+                      <span className="text-xs text-primary-foreground font-medium">
+                        {(count as number).toLocaleString()}
+                      </span>
+                    </motion.div>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* Longest lived */}
+      {stats.longestLived.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Долгожители (90+ лет)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {stats.longestLived.map((person, i) => (
+                  <AnimatedItem key={person.id} index={i}>
+                    <a
+                      href={`/person?id=${person.id}`}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors card-press"
+                    >
+                      <img
+                        src={mediaUrl(person.photo)}
+                        alt=""
+                        className="h-10 w-10 rounded-full object-cover bg-muted shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {person.lastName} {person.firstName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{person.age}</p>
+                      </div>
+                    </a>
+                  </AnimatedItem>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
     </div>
   );

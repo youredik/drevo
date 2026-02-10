@@ -79,14 +79,21 @@ export default function AuditPage() {
       {loading ? (
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <div key={i} className="rounded-xl border bg-card p-3 flex items-center gap-4">
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
           ))}
         </div>
       ) : logs.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Shield className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Журнал пуст</p>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <Shield className="h-16 w-16 mx-auto mb-4 opacity-20" />
+            <p className="text-lg font-medium mb-1">Журнал пуст</p>
+            <p className="text-sm">Действия администраторов будут отображаться здесь</p>
           </CardContent>
         </Card>
       ) : (

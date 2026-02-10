@@ -71,6 +71,12 @@ function PersonContent() {
   const nextPhoto = () => setPhotoIndex((i: number) => (i + 1) % photos.length);
   const prevPhoto = () => setPhotoIndex((i: number) => (i - 1 + photos.length) % photos.length);
 
+  const handleSwipeEnd = (_: any, info: { offset: { x: number } }) => {
+    if (photos.length <= 1) return;
+    if (info.offset.x < -50) nextPhoto();
+    else if (info.offset.x > 50) prevPhoto();
+  };
+
   useEffect(() => {
     if (!lightboxOpen) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -150,12 +156,21 @@ function PersonContent() {
             className="aspect-[3/4] rounded-2xl overflow-hidden bg-muted cursor-pointer group"
             onClick={() => setLightboxOpen(true)}
           >
-            <img
-              src={mediaUrl(photos[photoIndex])}
-              alt={`${person.lastName} ${person.firstName}`}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+            <motion.div
+              key={photoIndex}
+              drag={photos.length > 1 ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleSwipeEnd}
+              className="w-full h-full"
+            >
+              <img
+                src={mediaUrl(photos[photoIndex])}
+                alt={`${person.lastName} ${person.firstName}`}
+                className="w-full h-full object-cover pointer-events-none"
+              />
+            </motion.div>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none">
               <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
             </div>
           </div>
@@ -207,63 +222,69 @@ function PersonContent() {
             </TabsList>
 
             <TabsContent value="info" className="mt-4 space-y-3">
-              <InfoRow label="Дата рождения" value={person.birthDay || "—"} />
-              <InfoRow label="Место рождения" value={person.birthPlace || "—"} />
-              {!isAlive && <InfoRow label="Дата смерти" value={person.deathDay || "—"} />}
-              {!isAlive && person.deathPlace && <InfoRow label="Место смерти" value={person.deathPlace} />}
-              {person.address && <InfoRow label="Адрес" value={person.address} />}
-              {person.marryDay && <InfoRow label="Дата свадьбы" value={person.marryDay} />}
-              <InfoRow label="Пол" value={person.sex === 1 ? "Мужской" : "Женский"} />
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                <InfoRow label="Дата рождения" value={person.birthDay || "—"} />
+                <InfoRow label="Место рождения" value={person.birthPlace || "—"} />
+                {!isAlive && <InfoRow label="Дата смерти" value={person.deathDay || "—"} />}
+                {!isAlive && person.deathPlace && <InfoRow label="Место смерти" value={person.deathPlace} />}
+                {person.address && <InfoRow label="Адрес" value={person.address} />}
+                {person.marryDay && <InfoRow label="Дата свадьбы" value={person.marryDay} />}
+                <InfoRow label="Пол" value={person.sex === 1 ? "Мужской" : "Женский"} />
+              </motion.div>
             </TabsContent>
 
             <TabsContent value="family" className="mt-4 space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Родители</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {father ? <PersonMiniCard person={father} relation="Отец" /> : <p className="text-muted-foreground text-sm p-3">Нет данных</p>}
-                  {mother ? <PersonMiniCard person={mother} relation="Мать" /> : <p className="text-muted-foreground text-sm p-3">Нет данных</p>}
-                </div>
-              </div>
-              {spouses.length > 0 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    {spouses.length === 1 ? "Супруг(а)" : "Супруги"}
-                  </h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Родители</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {spouses.map((s) => (
-                      <PersonMiniCard key={s.id} person={s} relation={s.sex === 1 ? "Муж" : "Жена"} />
-                    ))}
+                    {father ? <PersonMiniCard person={father} relation="Отец" /> : <p className="text-muted-foreground text-sm p-3">Нет данных</p>}
+                    {mother ? <PersonMiniCard person={mother} relation="Мать" /> : <p className="text-muted-foreground text-sm p-3">Нет данных</p>}
                   </div>
                 </div>
-              )}
-              {children.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Дети ({children.length})</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {children.map((c) => (
-                      <PersonMiniCard key={c.id} person={c} relation={c.sex === 1 ? "Сын" : "Дочь"} />
-                    ))}
+                {spouses.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      {spouses.length === 1 ? "Супруг(а)" : "Супруги"}
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {spouses.map((s) => (
+                        <PersonMiniCard key={s.id} person={s} relation={s.sex === 1 ? "Муж" : "Жена"} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+                {children.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Дети ({children.length})</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {children.map((c) => (
+                        <PersonMiniCard key={c.id} person={c} relation={c.sex === 1 ? "Сын" : "Дочь"} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
             </TabsContent>
 
             {(data.hasBio || bio) && (
               <TabsContent value="bio" className="mt-4">
-                {bio ? (
-                  <div>
-                    <div className="flex justify-end mb-2">
-                      <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigator.clipboard.writeText(bio)}>
-                        <Copy className="h-3 w-3" /> Копировать
-                      </Button>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                  {bio ? (
+                    <div>
+                      <div className="flex justify-end mb-2">
+                        <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigator.clipboard.writeText(bio)}>
+                          <Copy className="h-3 w-3" /> Копировать
+                        </Button>
+                      </div>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/50 rounded-xl p-4">{bio}</div>
                     </div>
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/50 rounded-xl p-4">{bio}</div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-muted-foreground py-4">
-                    <BookOpen className="h-4 w-4" /> Биография доступна
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground py-4">
+                      <BookOpen className="h-4 w-4" /> Биография доступна
+                    </div>
+                  )}
+                </motion.div>
               </TabsContent>
             )}
           </Tabs>
@@ -301,16 +322,24 @@ function PersonContent() {
                 </Button>
               </>
             )}
-            <motion.img
+            <motion.div
               key={photoIndex}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              src={mediaUrl(photos[photoIndex])}
-              alt={person.lastName + ' ' + person.firstName}
-              className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+              drag={photos.length > 1 ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleSwipeEnd}
               onClick={(e) => e.stopPropagation()}
-            />
+              className="max-h-[90vh] max-w-[90vw]"
+            >
+              <motion.img
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                src={mediaUrl(photos[photoIndex])}
+                alt={person.lastName + ' ' + person.firstName}
+                className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg pointer-events-none"
+              />
+            </motion.div>
             <span className="absolute bottom-4 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
               {photoIndex + 1} / {photos.length}
             </span>
@@ -334,7 +363,7 @@ function PersonMiniCard({ person, relation }: { person: PersonBrief; relation: s
   const isAlive = !person.deathDay || person.deathDay.trim() === "";
   return (
     <Link href={`/person?id=${person.id}`} prefetch={false}>
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+      <Card className="hover:shadow-md transition-shadow cursor-pointer card-press">
         <CardContent className="flex items-center gap-3 py-3">
           <img
             src={mediaUrl(person.photo)}

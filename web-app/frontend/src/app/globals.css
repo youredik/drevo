@@ -123,4 +123,69 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Smooth theme transition */
+  html {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  html * {
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+}
+
+/* Card press effect on mobile */
+@media (hover: none) {
+  .card-press {
+    transition: transform 0.15s ease;
+  }
+  .card-press:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Scroll-to-top button */
+.scroll-top-btn {
+  @apply fixed bottom-24 md:bottom-8 right-4 z-40 h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all;
+}
+.scroll-top-btn:hover {
+  @apply shadow-xl scale-110;
+}
+
+/* Pulse dot for today events */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* NProgress-style loading bar */
+@keyframes nprogress-bar {
+  0% { width: 0%; left: 0%; }
+  50% { width: 60%; left: 20%; }
+  100% { width: 0%; left: 100%; }
+}
+.nprogress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: var(--primary);
+  z-index: 9999;
+  animation: nprogress-bar 1.5s ease-in-out infinite;
+}
+
+/* Animated counter */
+@property --num {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+
+/* Hero gradient */
+.hero-gradient {
+  background: radial-gradient(ellipse at 50% 0%, oklch(0.45 0.12 150 / 0.15) 0%, transparent 70%);
+}
+.dark .hero-gradient {
+  background: radial-gradient(ellipse at 50% 0%, oklch(0.60 0.14 150 / 0.15) 0%, transparent 70%);
 }
