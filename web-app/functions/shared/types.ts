@@ -132,3 +132,31 @@ export interface AppConfig {
   infoText: string;
   dataCollectionDate: string;
 }
+
+export interface ValidationIssue {
+  type: string;
+  personId: number;
+  message: string;
+}
+
+export interface ValidationResult {
+  issues: ValidationIssue[];
+  counts: Record<string, number>;
+}
+
+export interface PersonFormData {
+  sex: 0 | 1;
+  firstName: string;
+  lastName: string;
+  fatherId?: number;
+  motherId?: number;
+  birthPlace?: string;
+  birthDay?: string;
+  deathPlace?: string;
+  deathDay?: string;
+  address?: string;
+  orderByDad?: number;
+  orderByMom?: number;
+  orderBySpouse?: number;
+  marryDay?: string;
+}

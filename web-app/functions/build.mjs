@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-import { cpSync, mkdirSync, writeFileSync, existsSync } from "fs";
+import { cpSync, mkdirSync, writeFileSync, existsSync, rmSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
@@ -9,9 +9,10 @@ const DIST = join(__dirname, "dist");
 const ASSETS = join(__dirname, "..", "..", "android-app", "app", "src", "main", "assets");
 
 // Clean & create dist
+if (existsSync(DIST)) rmSync(DIST, { recursive: true });
 mkdirSync(join(DIST, "data"), { recursive: true });
 
-// 1. Bundle handler with esbuild
+// 1. Bundle handler with esbuild (ydb-sdk is external — needs native grpc)
 await esbuild.build({
   entryPoints: [join(__dirname, "handler.ts")],
   bundle: true,
@@ -19,7 +20,7 @@ await esbuild.build({
   target: "node18",
   format: "cjs",
   outfile: join(DIST, "handler.js"),
-  external: [],
+  external: ["ydb-sdk"],
   minify: false,
   sourcemap: false,
 });
@@ -46,15 +47,24 @@ if (existsSync(infoSrc)) {
   console.log("✓ info/ copied");
 }
 
-// 4. Minimal package.json (so Node.js doesn't try ESM)
+// 4. Install ydb-sdk in dist (production only)
 writeFileSync(
   join(DIST, "package.json"),
-  JSON.stringify({ name: "drevo-api", version: "1.0.0", private: true }, null, 2)
+  JSON.stringify(
+    { name: "drevo-api", version: "1.0.0", private: true, dependencies: { "ydb-sdk": "^5.11.1" } },
+    null,
+    2
+  )
 );
-console.log("✓ package.json created");
+
+execSync("npm install --production --no-optional", {
+  cwd: DIST,
+  stdio: "inherit",
+});
+console.log("✓ ydb-sdk installed in dist/");
 
 // 5. Create zip
-execSync("cd dist && zip -r api.zip handler.js package.json data/", {
+execSync("cd dist && zip -r api.zip handler.js package.json data/ node_modules/", {
   cwd: __dirname,
   stdio: "inherit",
 });

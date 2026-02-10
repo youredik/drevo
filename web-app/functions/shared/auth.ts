@@ -2,35 +2,70 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import type { AppUser, AuthResponse } from "./types.js";
 import type { Request, Response, NextFunction } from "express";
+import { isYdbConfigured } from "./ydb-client.js";
+import { loadUsers as ydbLoadUsers, upsertUser as ydbUpsertUser, deleteUserFromYdb } from "./ydb-repository.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "drevo-dev-secret-key-change-in-production";
 const TOKEN_EXPIRY = "24h";
 
 // Default users (seeded on first run)
-const defaultUsers: Omit<AppUser, "passwordHash">[] = [
-  { id: "1", login: "admin", role: "admin", createdAt: new Date().toISOString() },
-  { id: "2", login: "manager", role: "manager", createdAt: new Date().toISOString() },
-  { id: "3", login: "viewer", role: "viewer", createdAt: new Date().toISOString() },
+const defaultUsers: { login: string; role: AppUser["role"]; password: string }[] = [
+  { login: "admin", role: "admin", password: "admin123" },
+  { login: "manager", role: "manager", password: "manager123" },
+  { login: "viewer", role: "viewer", password: "viewer123" },
 ];
 
-const defaultPasswords: Record<string, string> = {
-  admin: "admin123",
-  manager: "manager123",
-  viewer: "viewer123",
-};
-
-// In-memory user store (for dev; in production: YDB)
+// In-memory user store
 let users: AppUser[] = [];
 let initialized = false;
 
 export async function initUsers(): Promise<void> {
   if (initialized) return;
-  users = [];
-  for (const u of defaultUsers) {
-    const hash = await bcrypt.hash(defaultPasswords[u.login], 10);
-    users.push({ ...u, passwordHash: hash });
+
+  if (isYdbConfigured()) {
+    try {
+      users = await ydbLoadUsers();
+      if (users.length === 0) {
+        console.log("No users in YDB, seeding defaults...");
+        for (const u of defaultUsers) {
+          const hash = await bcrypt.hash(u.password, 10);
+          const user: AppUser = {
+            id: String(Date.now() + Math.random()),
+            login: u.login,
+            passwordHash: hash,
+            role: u.role,
+            createdAt: new Date().toISOString(),
+          };
+          await ydbUpsertUser(user);
+          users.push(user);
+        }
+      }
+      console.log(`Auth initialized from YDB (${users.length} users)`);
+    } catch (e: any) {
+      console.error("Failed to load users from YDB, using defaults:", e.message);
+      await seedDefaultUsers();
+    }
+  } else {
+    await seedDefaultUsers();
   }
+
   initialized = true;
+}
+
+async function seedDefaultUsers(): Promise<void> {
+  users = [];
+  for (let i = 0; i < defaultUsers.length; i++) {
+    const u = defaultUsers[i];
+    const hash = await bcrypt.hash(u.password, 10);
+    users.push({
+      id: String(i + 1),
+      login: u.login,
+      passwordHash: hash,
+      role: u.role,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  console.log("Auth initialized (3 default users)");
 }
 
 export async function authenticate(login: string, password: string): Promise<AuthResponse | null> {
@@ -91,4 +126,61 @@ export function authMiddleware(requiredRole?: "admin" | "manager" | "viewer") {
 
 export function getUsers(): Omit<AppUser, "passwordHash">[] {
   return users.map(({ passwordHash, ...rest }) => rest);
+}
+
+// ─── User CRUD ──────────────────────────────────────────
+
+export async function createUser(
+  login: string,
+  password: string,
+  role: string
+): Promise<Omit<AppUser, "passwordHash"> | null> {
+  if (users.find((u) => u.login === login)) return null;
+
+  const hash = await bcrypt.hash(password, 10);
+  const user: AppUser = {
+    id: String(Date.now()),
+    login,
+    passwordHash: hash,
+    role: role as AppUser["role"],
+    createdAt: new Date().toISOString(),
+  };
+
+  users.push(user);
+  if (isYdbConfigured()) {
+    try { await ydbUpsertUser(user); } catch (e) { console.error("YDB upsert user error:", e); }
+  }
+
+  const { passwordHash, ...rest } = user;
+  return rest;
+}
+
+export async function updateUserById(
+  id: string,
+  updates: { login?: string; password?: string; role?: string }
+): Promise<Omit<AppUser, "passwordHash"> | null> {
+  const user = users.find((u) => u.id === id);
+  if (!user) return null;
+
+  if (updates.login) user.login = updates.login;
+  if (updates.role) user.role = updates.role as AppUser["role"];
+  if (updates.password) user.passwordHash = await bcrypt.hash(updates.password, 10);
+
+  if (isYdbConfigured()) {
+    try { await ydbUpsertUser(user); } catch (e) { console.error("YDB update user error:", e); }
+  }
+
+  const { passwordHash, ...rest } = user;
+  return rest;
+}
+
+export async function deleteUserById(id: string): Promise<boolean> {
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx === -1) return false;
+
+  users.splice(idx, 1);
+  if (isYdbConfigured()) {
+    try { await deleteUserFromYdb(id); } catch (e) { console.error("YDB delete user error:", e); }
+  }
+  return true;
 }

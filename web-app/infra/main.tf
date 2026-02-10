@@ -77,7 +77,8 @@ resource "yandex_function" "api" {
 
   environment = {
     JWT_SECRET      = var.jwt_secret
-    YDB_ENDPOINT    = yandex_ydb_database_serverless.db.document_api_endpoint
+    YDB_ENDPOINT    = yandex_ydb_database_serverless.db.ydb_api_endpoint
+    YDB_DATABASE    = yandex_ydb_database_serverless.db.database_path
     MEDIA_MOUNT     = "/mnt/media"
   }
 
@@ -124,6 +125,11 @@ output "media_bucket_name" {
 }
 
 output "ydb_endpoint" {
-  value       = yandex_ydb_database_serverless.db.document_api_endpoint
-  description = "YDB Document API endpoint"
+  value       = yandex_ydb_database_serverless.db.ydb_api_endpoint
+  description = "YDB gRPC endpoint"
+}
+
+output "ydb_database" {
+  value       = yandex_ydb_database_serverless.db.database_path
+  description = "YDB database path"
 }

@@ -10,6 +10,7 @@ import {
   Users,
   GitFork,
   BookOpen,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,9 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, mediaUrl } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
 function PersonContent() {
   const searchParams = useSearchParams();
+  const { canEdit } = useAuth();
   const id = Number(searchParams.get("id")) || 1;
   const [data, setData] = useState<any>(null);
   const [bio, setBio] = useState<string | null>(null);
@@ -93,6 +96,14 @@ function PersonContent() {
             <span className="hidden sm:inline">Родство</span>
           </Button>
         </Link>
+        {canEdit && (
+          <Link href={`/admin/person?id=${id}`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Pencil className="h-4 w-4" />
+              <span className="hidden sm:inline">Редактировать</span>
+            </Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-6">

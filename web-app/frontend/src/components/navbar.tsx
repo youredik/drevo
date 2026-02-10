@@ -17,6 +17,7 @@ import {
   Settings,
   Sun,
   Moon,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -41,7 +42,7 @@ const navItems = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, canEdit } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
 
@@ -94,9 +95,19 @@ export function Navbar() {
                   <DropdownMenuItem disabled>
                     Роль: {user.role === "admin" ? "Админ" : user.role === "manager" ? "Менеджер" : "Просмотр"}
                   </DropdownMenuItem>
-                  {isAdmin && (
+                  {canEdit && (
                     <>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/persons">
+                          <ClipboardList className="h-4 w-4 mr-2" />
+                          Управление
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {isAdmin && (
+                    <>
                       <DropdownMenuItem asChild>
                         <Link href="/settings">
                           <Settings className="h-4 w-4 mr-2" />
@@ -172,6 +183,14 @@ export function Navbar() {
                     <div className="px-4 py-2 text-sm text-muted-foreground">
                       {user.login} ({user.role === "admin" ? "Админ" : user.role === "manager" ? "Менеджер" : "Просмотр"})
                     </div>
+                    {canEdit && (
+                      <Link href="/admin/persons" onClick={() => setOpen(false)}>
+                        <Button variant="ghost" className="w-full justify-start gap-3">
+                          <ClipboardList className="h-5 w-5" />
+                          Управление
+                        </Button>
+                      </Link>
+                    )}
                     {isAdmin && (
                       <>
                         <Link href="/settings" onClick={() => setOpen(false)}>

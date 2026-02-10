@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
 import { parsePersonsCsv, parseFavoritesCsv } from "./csv-parser.js";
 import type {
@@ -36,6 +36,23 @@ export class DataRepository {
     this.mediaPath = mediaPath;
     this.infoPath = infoPath;
     this.buildPhotoCache();
+  }
+
+  // Alternative constructor: create from pre-loaded data (e.g. from YDB)
+  static fromData(
+    persons: Map<number, Person>,
+    favorites: number[],
+    mediaPath: string,
+    infoPath: string
+  ): DataRepository {
+    const repo = Object.create(DataRepository.prototype) as DataRepository;
+    repo.persons = persons;
+    repo.favorites = favorites;
+    repo.mediaPath = mediaPath;
+    repo.infoPath = infoPath;
+    repo.photoCache = new Map();
+    repo.buildPhotoCache();
+    return repo;
   }
 
   private buildPhotoCache(): void {
@@ -642,5 +659,213 @@ export class DataRepository {
       memorial: getDayMonth(person.deathDay) === todayDM,
       wedding: getDayMonth(person.marryDay) === todayDM,
     };
+  }
+
+  // ─── Mutations (update in-memory cache) ───────────────
+
+  getNextId(): number {
+    let maxId = 0;
+    for (const id of this.persons.keys()) {
+      if (id > maxId) maxId = id;
+    }
+    return maxId + 1;
+  }
+
+  addPerson(person: Person): void {
+    this.persons.set(person.id, person);
+  }
+
+  updatePerson(id: number, updates: Partial<Person>): Person | null {
+    const person = this.persons.get(id);
+    if (!person) return null;
+    Object.assign(person, updates);
+    return person;
+  }
+
+  removePerson(id: number): boolean {
+    const person = this.persons.get(id);
+    if (!person) return false;
+
+    // Remove from other persons' spouse/children lists
+    for (const p of this.persons.values()) {
+      p.spouseIds = p.spouseIds.filter((sid) => sid !== id);
+      p.childrenIds = p.childrenIds.filter((cid) => cid !== id);
+      if (p.fatherId === id) p.fatherId = 0;
+      if (p.motherId === id) p.motherId = 0;
+    }
+
+    this.persons.delete(id);
+    this.photoCache.delete(id);
+    return true;
+  }
+
+  addSpouseRelation(personId: number, spouseId: number): void {
+    const p1 = this.persons.get(personId);
+    const p2 = this.persons.get(spouseId);
+    if (p1 && !p1.spouseIds.includes(spouseId)) p1.spouseIds.push(spouseId);
+    if (p2 && !p2.spouseIds.includes(personId)) p2.spouseIds.push(personId);
+  }
+
+  removeSpouseRelation(personId: number, spouseId: number): void {
+    const p1 = this.persons.get(personId);
+    const p2 = this.persons.get(spouseId);
+    if (p1) p1.spouseIds = p1.spouseIds.filter((id) => id !== spouseId);
+    if (p2) p2.spouseIds = p2.spouseIds.filter((id) => id !== personId);
+  }
+
+  addChildRelation(parentId: number, childId: number): void {
+    const parent = this.persons.get(parentId);
+    if (parent && !parent.childrenIds.includes(childId)) {
+      parent.childrenIds.push(childId);
+    }
+  }
+
+  removeChildRelation(parentId: number, childId: number): void {
+    const parent = this.persons.get(parentId);
+    if (parent) {
+      parent.childrenIds = parent.childrenIds.filter((id) => id !== childId);
+    }
+  }
+
+  setParents(childId: number, fatherId: number, motherId: number): void {
+    const child = this.persons.get(childId);
+    if (!child) return;
+
+    // Remove from old parents' children lists
+    if (child.fatherId) {
+      const oldFather = this.persons.get(child.fatherId);
+      if (oldFather) oldFather.childrenIds = oldFather.childrenIds.filter((id) => id !== childId);
+    }
+    if (child.motherId) {
+      const oldMother = this.persons.get(child.motherId);
+      if (oldMother) oldMother.childrenIds = oldMother.childrenIds.filter((id) => id !== childId);
+    }
+
+    // Set new parents
+    child.fatherId = fatherId;
+    child.motherId = motherId;
+
+    // Add to new parents' children lists
+    if (fatherId) this.addChildRelation(fatherId, childId);
+    if (motherId) this.addChildRelation(motherId, childId);
+  }
+
+  // ─── Photo management ─────────────────────────────────
+
+  addPhoto(personId: number, data: Buffer, filename?: string): string {
+    const photos = this.getPhotos(personId);
+    const nextIndex = photos.length > 0
+      ? Math.max(...photos.map((f) => parseInt(f.split("#")[1]) || 0)) + 1
+      : 0;
+    const fn = filename || `${personId}#${nextIndex}.jpg`;
+    const filePath = join(this.mediaPath, fn);
+    writeFileSync(filePath, data);
+
+    // Update cache
+    if (!this.photoCache.has(personId)) this.photoCache.set(personId, []);
+    this.photoCache.get(personId)!.push(fn);
+    this.photoCache.get(personId)!.sort((a, b) => {
+      const idxA = parseInt(a.split("#")[1]);
+      const idxB = parseInt(b.split("#")[1]);
+      return idxA - idxB;
+    });
+    return fn;
+  }
+
+  deletePhoto(personId: number, filename: string): boolean {
+    const filePath = join(this.mediaPath, filename);
+    if (!existsSync(filePath)) return false;
+    unlinkSync(filePath);
+    const photos = this.photoCache.get(personId);
+    if (photos) {
+      this.photoCache.set(personId, photos.filter((f) => f !== filename));
+    }
+    return true;
+  }
+
+  // ─── Biography management ─────────────────────────────
+
+  setBio(personId: number, type: "open" | "lock", text: string): void {
+    if (!existsSync(this.infoPath)) mkdirSync(this.infoPath, { recursive: true });
+    const filePath = join(this.infoPath, `${type}#${personId}`);
+    writeFileSync(filePath, text, "utf-8");
+  }
+
+  deleteBio(personId: number, type: "open" | "lock"): boolean {
+    const filePath = join(this.infoPath, `${type}#${personId}`);
+    if (!existsSync(filePath)) return false;
+    unlinkSync(filePath);
+    return true;
+  }
+
+  // ─── Validation ───────────────────────────────────────
+
+  validate(): { issues: { type: string; personId: number; message: string }[]; counts: Record<string, number> } {
+    const issues: { type: string; personId: number; message: string }[] = [];
+
+    for (const person of this.persons.values()) {
+      // Empty names
+      if (!person.firstName.trim() && !person.lastName.trim()) {
+        issues.push({ type: "empty_name", personId: person.id, message: "Пустое имя и фамилия" });
+      }
+
+      // Unknown markers
+      if (person.firstName.includes("?") || person.lastName.includes("?")) {
+        issues.push({ type: "unknown_person", personId: person.id, message: "Содержит '?' в имени" });
+      }
+
+      // Spouse reciprocity
+      for (const sid of person.spouseIds) {
+        const spouse = this.persons.get(sid);
+        if (!spouse) {
+          issues.push({ type: "orphan_spouse", personId: person.id, message: `Супруг ${sid} не найден` });
+        } else if (!spouse.spouseIds.includes(person.id)) {
+          issues.push({ type: "missing_reciprocal_spouse", personId: person.id, message: `Супруг ${sid} не ссылается обратно` });
+        }
+      }
+
+      // Parent-child reciprocity
+      for (const cid of person.childrenIds) {
+        const child = this.persons.get(cid);
+        if (!child) {
+          issues.push({ type: "orphan_child", personId: person.id, message: `Ребёнок ${cid} не найден` });
+        } else if (child.fatherId !== person.id && child.motherId !== person.id) {
+          issues.push({ type: "missing_reciprocal_parent", personId: person.id, message: `Ребёнок ${cid} не указывает родителем` });
+        }
+      }
+
+      // No connections (orphan)
+      if (!person.fatherId && !person.motherId && person.spouseIds.length === 0 && person.childrenIds.length === 0) {
+        issues.push({ type: "isolated", personId: person.id, message: "Нет связей ни с кем" });
+      }
+
+      // No photos
+      if (this.getPhotos(person.id).length === 0) {
+        issues.push({ type: "no_photo", personId: person.id, message: "Нет фотографий" });
+      }
+    }
+
+    const counts: Record<string, number> = {};
+    for (const issue of issues) {
+      counts[issue.type] = (counts[issue.type] || 0) + 1;
+    }
+
+    return { issues, counts };
+  }
+
+  // ─── CSV export ───────────────────────────────────────
+
+  exportToCsv(): string {
+    const lines: string[] = [];
+    const sorted = Array.from(this.persons.values()).sort((a, b) => a.id - b.id);
+    for (const p of sorted) {
+      lines.push([
+        p.id, p.sex, p.lastName, p.firstName, p.fatherId || "", p.motherId || "",
+        p.birthPlace, p.birthDay, p.deathPlace, p.deathDay, p.address,
+        p.spouseIds.join(" "), p.childrenIds.join(" "),
+        p.orderByDad, p.orderByMom, p.orderBySpouse, p.marryDay,
+      ].join(";"));
+    }
+    return lines.join("\n");
   }
 }
