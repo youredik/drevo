@@ -10,6 +10,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("drevo_token");
+      window.location.href = "/login";
+      throw new Error("Сессия истекла");
+    }
     const error = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(error.error || `HTTP ${res.status}`);
   }
@@ -23,6 +28,11 @@ async function requestText(path: string): Promise<string> {
 
   const res = await fetch(`${API_BASE}${path}`, { headers });
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("drevo_token");
+      window.location.href = "/login";
+      throw new Error("Сессия истекла");
+    }
     const error = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(error.error || `HTTP ${res.status}`);
   }
@@ -30,7 +40,9 @@ async function requestText(path: string): Promise<string> {
 }
 
 export function mediaUrl(filename: string): string {
-  return `${API_BASE}/api/media/${encodeURIComponent(filename)}`;
+  const token = typeof window !== "undefined" ? localStorage.getItem("drevo_token") : null;
+  const base = `${API_BASE}/api/media/${encodeURIComponent(filename)}`;
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
 
 // ─── API functions ────────────────────────────────────

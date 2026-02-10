@@ -46,6 +46,9 @@ export function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
 
+  // Hide navbar on login page
+  if (pathname === "/login") return null;
+
   return (
     <>
       {/* Desktop navbar */}

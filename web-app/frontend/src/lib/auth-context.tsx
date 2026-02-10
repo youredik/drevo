@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { api } from "./api";
 
 interface User {
@@ -30,6 +31,8 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem("drevo_token");
@@ -44,6 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user && pathname !== "/login") {
+      router.replace("/login");
+    }
+  }, [isLoading, user, pathname, router]);
+
   const login = useCallback(async (loginStr: string, password: string) => {
     const data = await api.login(loginStr, password);
     localStorage.setItem("drevo_token", data.token);
@@ -57,6 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canEdit = user?.role === "admin" || user?.role === "manager";
   const isAdmin = user?.role === "admin";
+
+  // While redirecting to login, render nothing (avoid flash of content)
+  if (!isLoading && !user && pathname !== "/login") {
+    return null;
+  }
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout, canEdit, isAdmin }}>

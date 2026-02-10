@@ -115,10 +115,16 @@ function matchPath(pattern: string, path: string): Record<string, string> | null
 }
 
 // ─── Auth helpers ───────────────────────────────────────
-function getAuthUser(headers: Record<string, string>): { id: string; login: string; role: string } | null {
+function getAuthUser(headers: Record<string, string>, query?: Record<string, string>): { id: string; login: string; role: string } | null {
   const authHeader = headers["Authorization"] || headers["authorization"] || "";
-  if (!authHeader.startsWith("Bearer ")) return null;
-  return verifyToken(authHeader.slice(7));
+  if (authHeader.startsWith("Bearer ")) {
+    return verifyToken(authHeader.slice(7));
+  }
+  // Fallback: token from query string (for <img src> which can't send headers)
+  if (query?.token) {
+    return verifyToken(query.token);
+  }
+  return null;
 }
 
 const roleHierarchy: Record<string, number> = { admin: 3, manager: 2, viewer: 1 };
@@ -154,9 +160,15 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
   const apiPath = rawPath.startsWith("/api") ? rawPath.slice(4) : rawPath;
   let params: Record<string, string> | null;
 
+  // ── Global auth check (all endpoints except login) ──
+  if (!(method === "POST" && apiPath === "/auth/login")) {
+    const authUser = getAuthUser(headers, query);
+    if (!authUser) return err("Требуется авторизация", 401);
+  }
+
   try {
     // ════════════════════════════════════════════════════
-    // PUBLIC API
+    // PUBLIC API (requires valid token via global check above)
     // ════════════════════════════════════════════════════
 
     // ── GET /persons/:id ──

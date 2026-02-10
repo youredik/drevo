@@ -28,6 +28,17 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
+// ─── Global auth check (all endpoints except login) ──
+app.use("/api", (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  if (req.method === "POST" && req.path === "/auth/login") return next();
+  // Support token from query string (for <img src> media URLs)
+  if (!req.headers.authorization && req.query.token) {
+    req.headers.authorization = `Bearer ${req.query.token}`;
+  }
+  authMiddleware("viewer")(req, res, next);
+});
+
 // Initialize data
 let repo: DataRepository;
 let useYdb = false;

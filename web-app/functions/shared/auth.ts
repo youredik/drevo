@@ -10,10 +10,17 @@ const TOKEN_EXPIRY = "24h";
 
 // Default users (seeded on first run)
 const defaultUsers: { login: string; role: AppUser["role"]; password: string }[] = [
-  { login: "admin", role: "admin", password: "admin123" },
-  { login: "manager", role: "manager", password: "manager123" },
-  { login: "viewer", role: "viewer", password: "viewer123" },
+  { login: "admin", role: "admin", password: "Drv!Adm_8kX2q" },
+  { login: "manager", role: "manager", password: "Drv!Mgr_5pW9n" },
+  { login: "viewer", role: "viewer", password: "Drv!Vwr_3tR7m" },
 ];
+
+// Old passwords for one-time migration
+const oldPasswords: Record<string, string> = {
+  admin: "admin123",
+  manager: "manager123",
+  viewer: "viewer123",
+};
 
 // In-memory user store
 let users: AppUser[] = [];
@@ -38,6 +45,20 @@ export async function initUsers(): Promise<void> {
           };
           await ydbUpsertUser(user);
           users.push(user);
+        }
+      } else {
+        // Migrate default users from old weak passwords to new strong ones
+        for (const def of defaultUsers) {
+          const user = users.find((u) => u.login === def.login);
+          if (!user) continue;
+          const oldPw = oldPasswords[def.login];
+          if (!oldPw) continue;
+          const hasOldPassword = await bcrypt.compare(oldPw, user.passwordHash);
+          if (hasOldPassword) {
+            console.log(`Migrating password for user: ${def.login}`);
+            user.passwordHash = await bcrypt.hash(def.password, 10);
+            await ydbUpsertUser(user);
+          }
         }
       }
       console.log(`Auth initialized from YDB (${users.length} users)`);
