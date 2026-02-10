@@ -17,7 +17,7 @@ await esbuild.build({
   entryPoints: [join(__dirname, "handler.ts")],
   bundle: true,
   platform: "node",
-  target: "node18",
+  target: "node20",
   format: "cjs",
   outfile: join(DIST, "handler.js"),
   external: ["ydb-sdk"],

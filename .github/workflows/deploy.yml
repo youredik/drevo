@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: "18"
+  NODE_VERSION: "20"
   FUNCTION_NAME: drevo-api
   SPA_BUCKET: drevo-spa
   MEDIA_BUCKET: drevo-media
@@ -76,7 +76,7 @@ jobs:
         run: |
           yc serverless function version create \
             --function-name=${{ env.FUNCTION_NAME }} \
-            --runtime=nodejs18 \
+            --runtime=nodejs20 \
             --entrypoint=handler.handler \
             --memory=256m \
             --execution-timeout=10s \
