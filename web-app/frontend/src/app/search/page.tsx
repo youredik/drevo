@@ -1,0 +1,136 @@
+"use client";
+
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Search as SearchIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api, mediaUrl } from "@/lib/api";
+
+export default function SearchPage() {
+  return <Suspense><SearchContent /></Suspense>;
+}
+
+function SearchContent() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const [query, setQuery] = useState(initialQuery);
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  const doSearch = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setResults([]);
+      setSearched(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await api.search(q.trim());
+      setResults(data.results);
+      setSearched(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialQuery) doSearch(initialQuery);
+  }, [initialQuery, doSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim().length >= 2) doSearch(query);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, doSearch]);
+
+  const matchFieldLabel = (field: string) => {
+    const labels: Record<string, string> = {
+      id: "ID",
+      name: "Имя",
+      address: "Адрес",
+      birthPlace: "Место рождения",
+      birthDay: "Дата рождения",
+      deathDay: "Дата смерти",
+      marryDay: "Дата свадьбы",
+    };
+    return labels[field] || field;
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
+      <h1 className="text-2xl font-bold mb-6">Поиск</h1>
+
+      <div className="relative mb-6">
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Имя, фамилия, дата, адрес..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-10 h-12 text-base"
+          autoFocus
+        />
+      </div>
+
+      {loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+      )}
+
+      {!loading && searched && (
+        <p className="text-sm text-muted-foreground mb-4">
+          {results.length > 0 ? `Найдено: ${results.length}` : "Ничего не найдено"}
+        </p>
+      )}
+
+      {!loading && (
+        <div className="space-y-2">
+          {results.map((r: any) => {
+            const isAlive = !r.deathDay || r.deathDay.trim() === "";
+            return (
+              <Link key={r.id} href={`/person?id=${r.id}`}>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardContent className="flex items-center gap-4 py-3">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${
+                      isAlive ? "bg-primary" : "bg-destructive"
+                    }`}>
+                      {r.id}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {r.lastName} {r.firstName}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {r.age && <span className="text-xs text-muted-foreground">{r.age}</span>}
+                        {r.birthDay && (
+                          <span className="text-xs text-muted-foreground">{r.birthDay}</span>
+                        )}
+                        {r.address && (
+                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {r.address}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-xs">
+                      {matchFieldLabel(r.matchField)}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+

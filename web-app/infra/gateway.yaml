@@ -1,0 +1,43 @@
+openapi: 3.0.0
+info:
+  title: Drevo API Gateway
+  version: 1.0.0
+
+paths:
+  # ─── API routes → Cloud Function ─────────────────────
+  /api/{path+}:
+    x-yc-apigateway-any-method:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: ${function_id}
+        service_account_id: ${sa_id}
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ─── Static SPA → Object Storage ─────────────────────
+  /:
+    get:
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: ${spa_bucket}
+        object: index.html
+        service_account_id: ${sa_id}
+
+  /{file+}:
+    get:
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: ${spa_bucket}
+        object: '{file}'
+        service_account_id: ${sa_id}
+        error_object: index.html
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string

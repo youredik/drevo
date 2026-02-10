@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Android app (source data, not part of web repo)
+android-app/
+
+# Deploy artifacts & scripts with credentials
+web-app/infra/gateway-deploy.yaml
+web-app/upload-s3.mjs
+
+# Misc
+*.tsbuildinfo
+next-env.d.ts
