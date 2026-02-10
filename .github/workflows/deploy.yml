@@ -63,9 +63,10 @@ jobs:
         id: ydb
         run: |
           YDB_INFO=$(yc ydb database get drevo-db --format json)
-          ENDPOINT=$(echo $YDB_INFO | jq -r '.endpoint')
+          FULL_ENDPOINT=$(echo $YDB_INFO | jq -r '.endpoint')
+          ENDPOINT=$(echo "$FULL_ENDPOINT" | sed 's/\?.*//')
           echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
-          DATABASE=$(echo "$ENDPOINT" | sed 's/.*database=\(.*\)/\1/')
+          DATABASE=$(echo "$FULL_ENDPOINT" | sed 's/.*database=\(.*\)/\1/')
           echo "database=$DATABASE" >> $GITHUB_OUTPUT
 
       - name: Get Service Account ID
