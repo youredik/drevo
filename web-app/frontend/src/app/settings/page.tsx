@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
+import { api, AppConfig, ValidationIssue } from "@/lib/api";
 
 export default function SettingsPage() {
   const { isAdmin, canEdit, isLoading: authLoading } = useAuth();
@@ -47,7 +47,7 @@ export default function SettingsPage() {
 
   // Validation
   const [validating, setValidating] = useState(false);
-  const [validation, setValidation] = useState<{ issues: any[]; counts: Record<string, number> } | null>(null);
+  const [validation, setValidation] = useState<{ issues: ValidationIssue[]; counts: Record<string, number> } | null>(null);
 
   // Import
   const [importConfirm, setImportConfirm] = useState(false);
@@ -61,7 +61,7 @@ export default function SettingsPage() {
         const c = d.config;
         setConfig({
           appName: c.appName || "", appDescription: c.appDescription || "",
-          telegramLink: c.telegramLink || "", defaultEventDays: c.defaultEventDays || "5",
+          telegramLink: c.telegramLink || "", defaultEventDays: String(c.defaultEventDays || 5),
           defaultStartPage: c.defaultStartPage || "home", aboutText: c.aboutText || "",
           infoText: c.infoText || "", dataCollectionDate: c.dataCollectionDate || "",
         });
@@ -77,7 +77,7 @@ export default function SettingsPage() {
 
   async function handleSaveConfig() {
     try {
-      await api.saveConfig(config);
+      await api.saveConfig({ ...config, defaultEventDays: Number(config.defaultEventDays), defaultStartPage: config.defaultStartPage as AppConfig["defaultStartPage"] });
       showMsg("Настройки сохранены");
     } catch (e: any) { showMsg("Ошибка: " + e.message); }
   }

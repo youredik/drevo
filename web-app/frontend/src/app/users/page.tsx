@@ -42,17 +42,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
+import { api, AppUser } from "@/lib/api";
 
 const roleLabels: Record<string, string> = { admin: "Админ", manager: "Менеджер", viewer: "Просмотр" };
 
 export default function UsersPage() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const router = useRouter();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [editUser, setEditUser] = useState<any>(null);
+  const [editUser, setEditUser] = useState<AppUser | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ login: "", password: "", role: "viewer" });
   const [message, setMessage] = useState("");
@@ -108,7 +108,7 @@ export default function UsersPage() {
     } catch (e: any) { showMsg("Ошибка: " + e.message); }
   }
 
-  function openEdit(user: any) {
+  function openEdit(user: AppUser) {
     setForm({ login: user.login, password: "", role: user.role });
     setEditUser(user);
   }

@@ -222,7 +222,7 @@ function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
       >
         <img
           src={mediaUrl(node.photo)}
-          alt=""
+          alt={node.firstName + ' ' + node.lastName}
           className={`h-12 w-12 rounded-full object-cover shrink-0 ring-2 transition-transform group-hover:scale-110 ${
             node.isAlive ? "ring-emerald-400" : "ring-red-400"
           }`}
@@ -379,7 +379,7 @@ function TreeNodeComponent({
         >
           <img
             src={mediaUrl(node.photo)}
-            alt=""
+            alt={node.firstName + ' ' + node.lastName}
             className={`h-8 w-8 rounded-full object-cover shrink-0 ring-2 ${
               node.isAlive ? "ring-emerald-400" : "ring-red-400"
             }`}

@@ -5,10 +5,10 @@ import { BarChart3, Users, Heart, HeartOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, StatsData } from "@/lib/api";
 
 export default function StatsPage() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function StatsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {stats.longestLived.map((person: any) => (
+              {stats.longestLived.map((person) => (
                 <a
                   key={person.id}
                   href={`/person?id=${person.id}`}

@@ -62,11 +62,11 @@ export function Navbar() {
             <span className="text-xl font-bold tracking-tight">Drevo</span>
           </Link>
 
-          <nav className="flex items-center gap-1">
+          <nav aria-label="Основная навигация" className="flex items-center gap-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
-                <Link key={item.href} href={item.href} prefetch={false}>
+                <Link key={item.href} href={item.href} prefetch={false} aria-current={isActive ? "page" : undefined}>
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
@@ -154,7 +154,7 @@ export function Navbar() {
       </header>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md">
+      <nav aria-label="Мобильная навигация" className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md">
         <div className="flex items-center justify-around h-16">
           {navItems.slice(0, 5).map((item) => {
             const isActive = pathname === item.href;
@@ -163,6 +163,7 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 prefetch={false}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}

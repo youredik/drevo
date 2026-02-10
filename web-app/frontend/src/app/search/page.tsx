@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, SearchResult } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function SearchPage() {
   return <Suspense><SearchContent /></Suspense>;
@@ -19,7 +20,7 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [sexFilter, setSexFilter] = useState<"all" | "male" | "female">("all");
@@ -36,8 +37,8 @@ function SearchContent() {
       const data = await api.search(q.trim());
       setResults(data.results);
       setSearched(true);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка поиска");
     } finally {
       setLoading(false);
     }
@@ -67,7 +68,7 @@ function SearchContent() {
     return labels[field] || field;
   };
 
-  const filteredResults = results.filter((r: any) => {
+  const filteredResults = results.filter((r) => {
     if (sexFilter === "male" && r.sex !== 1) return false;
     if (sexFilter === "female" && r.sex !== 0) return false;
     const isAlive = !r.deathDay || r.deathDay.trim() === "";
@@ -92,35 +93,39 @@ function SearchContent() {
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {[
-          { key: "all" as const, label: "Все" },
-          { key: "male" as const, label: "Мужчины" },
-          { key: "female" as const, label: "Женщины" },
-        ].map((f) => (
-          <Button
-            key={f.key}
-            variant={sexFilter === f.key ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSexFilter(f.key)}
-          >
-            {f.label}
-          </Button>
-        ))}
+        <div role="group" aria-label="Фильтр по полу" className="flex flex-wrap gap-2">
+          {[
+            { key: "all" as const, label: "Все" },
+            { key: "male" as const, label: "Мужчины" },
+            { key: "female" as const, label: "Женщины" },
+          ].map((f) => (
+            <Button
+              key={f.key}
+              variant={sexFilter === f.key ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSexFilter(f.key)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
         <div className="w-px bg-border mx-1" />
-        {[
-          { key: "all" as const, label: "Все" },
-          { key: "alive" as const, label: "Живые" },
-          { key: "dead" as const, label: "Умершие" },
-        ].map((f) => (
-          <Button
-            key={f.key}
-            variant={aliveFilter === f.key ? "default" : "outline"}
-            size="sm"
-            onClick={() => setAliveFilter(f.key)}
-          >
-            {f.label}
-          </Button>
-        ))}
+        <div role="group" aria-label="Фильтр по статусу" className="flex flex-wrap gap-2">
+          {[
+            { key: "all" as const, label: "Все" },
+            { key: "alive" as const, label: "Живые" },
+            { key: "dead" as const, label: "Умершие" },
+          ].map((f) => (
+            <Button
+              key={f.key}
+              variant={aliveFilter === f.key ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAliveFilter(f.key)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {loading && (
@@ -137,7 +142,7 @@ function SearchContent() {
 
       {!loading && (
         <div className="space-y-2">
-          {filteredResults.map((r: any) => {
+          {filteredResults.map((r) => {
             const isAlive = !r.deathDay || r.deathDay.trim() === "";
             return (
               <Link key={r.id} href={`/person?id=${r.id}`} prefetch={false}>

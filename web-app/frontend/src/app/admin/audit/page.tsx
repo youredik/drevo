@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
+import { api, AuditLog } from "@/lib/api";
+import { toast } from "sonner";
 
 const actionLabels: Record<string, string> = {
   create: "Создание",
@@ -42,7 +43,7 @@ function formatTimestamp(iso: string): string {
 }
 
 export default function AuditPage() {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(50);
 
@@ -50,7 +51,7 @@ export default function AuditPage() {
     setLoading(true);
     api.getAuditLogs(limit)
       .then((data) => setLogs(data.logs))
-      .catch(console.error)
+      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
       .finally(() => setLoading(false));
   }, [limit]);
 
@@ -90,7 +91,7 @@ export default function AuditPage() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {logs.map((log: any) => (
+          {logs.map((log) => (
             <Card key={log.id}>
               <CardContent className="flex items-center gap-4 py-3">
                 <div className="shrink-0">

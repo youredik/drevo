@@ -70,11 +70,20 @@ interface YcResponse {
 }
 
 // ─── CORS headers ───────────────────────────────────────
-const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+const ALLOWED_ORIGINS = ["https://nashe-drevo.ru", "https://www.nashe-drevo.ru", "http://localhost:3000"];
+
+function corsHeaders(origin?: string): Record<string, string> {
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Vary": "Origin",
+  };
+}
+
+// Request-scoped CORS (set per handler call)
+let CORS: Record<string, string> = corsHeaders();
 
 function json(data: unknown, status = 200): YcResponse {
   return {
@@ -88,7 +97,7 @@ function json(data: unknown, status = 200): YcResponse {
 function binary(data: Buffer, contentType: string): YcResponse {
   return {
     statusCode: 200,
-    headers: { ...CORS, "Content-Type": contentType, "Cache-Control": "public, max-age=86400" },
+    headers: { ...CORS, "Content-Type": contentType, "Cache-Control": "private, max-age=86400" },
     body: data.toString("base64"),
     isBase64Encoded: true,
   };
@@ -160,6 +169,9 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
   const url = event.url || "";
   const query = event.queryStringParameters || {};
   const headers = event.headers || {};
+
+  // Set CORS for this request
+  CORS = corsHeaders(headers["Origin"] || headers["origin"]);
 
   // CORS preflight
   if (method === "OPTIONS") {
@@ -432,6 +444,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       const id = parseInt(params.id);
       const body = parseBody<{ spouseId: number }>(event);
       if (!body.spouseId) return err("Укажите spouseId", 400);
+      if (id === body.spouseId) return err("Нельзя добавить человека как собственного супруга", 400);
       if (!r.getPerson(id) || !r.getPerson(body.spouseId)) return err("Человек не найден", 404);
 
       r.addSpouseRelation(id, body.spouseId);
@@ -459,6 +472,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       const id = parseInt(params.id);
       const body = parseBody<{ childId: number }>(event);
       if (!body.childId) return err("Укажите childId", 400);
+      if (id === body.childId) return err("Нельзя добавить человека как собственного ребёнка", 400);
       if (!r.getPerson(id) || !r.getPerson(body.childId)) return err("Человек не найден", 404);
 
       r.addChildRelation(id, body.childId);
@@ -486,6 +500,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
       const id = parseInt(params.id);
       const body = parseBody<{ fatherId?: number; motherId?: number }>(event);
       if (!r.getPerson(id)) return err("Человек не найден", 404);
+      if (body.fatherId === id || body.motherId === id) return err("Нельзя назначить человека родителем самого себя", 400);
 
       r.setParents(id, body.fatherId || 0, body.motherId || 0);
       const person = r.getPerson(id)!;

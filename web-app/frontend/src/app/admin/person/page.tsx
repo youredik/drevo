@@ -30,8 +30,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, PersonCard, PersonBrief } from "@/lib/api";
 import { PersonSearchSelect } from "@/components/person-search-select";
+import { toast } from "sonner";
+
+function validateDate(value: string): boolean {
+  if (!value) return true; // empty is ok
+  return /^\d{4}$/.test(value) || /^\d{2}\.\d{2}\.\d{4}$/.test(value);
+}
 
 function PersonEditor() {
   const searchParams = useSearchParams();
@@ -41,8 +47,7 @@ function PersonEditor() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PersonCard | null>(null);
 
   // Form fields
   const [form, setForm] = useState({
@@ -55,8 +60,8 @@ function PersonEditor() {
   // Relations
   const [fatherId, setFatherId] = useState<number | undefined>();
   const [motherId, setMotherId] = useState<number | undefined>();
-  const [spouses, setSpouses] = useState<any[]>([]);
-  const [children, setChildren] = useState<any[]>([]);
+  const [spouses, setSpouses] = useState<PersonBrief[]>([]);
+  const [children, setChildren] = useState<PersonBrief[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [bio, setBio] = useState("");
   const [bioLoaded, setBioLoaded] = useState(false);
@@ -66,6 +71,15 @@ function PersonEditor() {
   const [removeSpouseId, setRemoveSpouseId] = useState<number | null>(null);
   const [removeChildId, setRemoveChildId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Mutation loading states
+  const [addingSpouse, setAddingSpouse] = useState(false);
+  const [addingChild, setAddingChild] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [savingBio, setSavingBio] = useState(false);
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const [removingSpouse, setRemovingSpouse] = useState(false);
+  const [removingChild, setRemovingChild] = useState(false);
 
   useEffect(() => {
     if (!id || !canEdit) return;
@@ -91,20 +105,31 @@ function PersonEditor() {
       } else {
         setBioLoaded(true);
       }
-    }).catch(console.error).finally(() => setLoading(false));
+    }).catch((e) => toast.error(e.message || "Ошибка загрузки")).finally(() => setLoading(false));
   }, [id, canEdit]);
 
-  function showMsg(text: string) {
-    setMessage(text);
-    setTimeout(() => setMessage(""), 3000);
-  }
-
   async function handleSave() {
+    if (!form.firstName.trim() && !form.lastName.trim()) {
+      toast.error("Укажите имя или фамилию");
+      return;
+    }
+    if (!validateDate(form.birthDay)) {
+      toast.error("Неверный формат даты рождения (ДД.ММ.ГГГГ или ГГГГ)");
+      return;
+    }
+    if (!validateDate(form.deathDay)) {
+      toast.error("Неверный формат даты смерти");
+      return;
+    }
+    if (!validateDate(form.marryDay)) {
+      toast.error("Неверный формат даты свадьбы");
+      return;
+    }
     setSaving(true);
     try {
       await api.updatePerson(id, {
         firstName: form.firstName, lastName: form.lastName,
-        sex: Number(form.sex), birthDay: form.birthDay, birthPlace: form.birthPlace,
+        sex: Number(form.sex) as 0 | 1, birthDay: form.birthDay, birthPlace: form.birthPlace,
         deathDay: form.deathDay, deathPlace: form.deathPlace,
         address: form.address, marryDay: form.marryDay,
         orderByDad: Number(form.orderByDad), orderByMom: Number(form.orderByMom),
@@ -118,7 +143,7 @@ function PersonEditor() {
         await api.setParents(id, fatherId || 0, motherId || 0);
       }
 
-      showMsg("Сохранено!");
+      toast.success("Сохранено!");
       // Reload data
       const d = await api.getPerson(id);
       setData(d);
@@ -126,63 +151,75 @@ function PersonEditor() {
       setChildren(d.children || []);
       setPhotos(d.photos || []);
     } catch (e: any) {
-      showMsg("Ошибка: " + e.message);
+      toast.error(e.message || "Ошибка");
     }
     setSaving(false);
   }
 
   async function handleSaveBio() {
+    setSavingBio(true);
     try {
       await api.saveBio(id, bio);
-      showMsg("Биография сохранена!");
+      toast.success("Биография сохранена!");
     } catch (e: any) {
-      showMsg("Ошибка: " + e.message);
+      toast.error(e.message || "Ошибка");
+    } finally {
+      setSavingBio(false);
     }
   }
 
   async function handleAddSpouse(spouseId: number | undefined) {
     if (!spouseId) return;
+    setAddingSpouse(true);
     try {
       await api.addSpouse(id, spouseId);
       const d = await api.getPerson(id);
       setSpouses(d.spouses || []);
-      showMsg("Супруг(а) добавлен(а)");
-    } catch (e: any) { showMsg("Ошибка: " + e.message); }
+      toast.success("Супруг(а) добавлен(а)");
+    } catch (e: any) { toast.error(e.message || "Ошибка"); }
+    finally { setAddingSpouse(false); }
   }
 
   async function handleRemoveSpouse() {
     if (!removeSpouseId) return;
+    setRemovingSpouse(true);
     try {
       await api.removeSpouse(id, removeSpouseId);
       setSpouses((prev) => prev.filter((s) => s.id !== removeSpouseId));
       setRemoveSpouseId(null);
-      showMsg("Супруг(а) удалён(а)");
-    } catch (e: any) { showMsg("Ошибка: " + e.message); }
+      toast.success("Супруг(а) удалён(а)");
+    } catch (e: any) { toast.error(e.message || "Ошибка"); }
+    finally { setRemovingSpouse(false); }
   }
 
   async function handleAddChild(childId: number | undefined) {
     if (!childId) return;
+    setAddingChild(true);
     try {
       await api.addChild(id, childId);
       const d = await api.getPerson(id);
       setChildren(d.children || []);
-      showMsg("Ребёнок добавлен");
-    } catch (e: any) { showMsg("Ошибка: " + e.message); }
+      toast.success("Ребёнок добавлен");
+    } catch (e: any) { toast.error(e.message || "Ошибка"); }
+    finally { setAddingChild(false); }
   }
 
   async function handleRemoveChild() {
     if (!removeChildId) return;
+    setRemovingChild(true);
     try {
       await api.removeChild(id, removeChildId);
       setChildren((prev) => prev.filter((c) => c.id !== removeChildId));
       setRemoveChildId(null);
-      showMsg("Ребёнок удалён из списка");
-    } catch (e: any) { showMsg("Ошибка: " + e.message); }
+      toast.success("Ребёнок удалён из списка");
+    } catch (e: any) { toast.error(e.message || "Ошибка"); }
+    finally { setRemovingChild(false); }
   }
 
   async function handleUploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploading(true);
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = (reader.result as string).split(",")[1];
@@ -190,8 +227,9 @@ function PersonEditor() {
         await api.uploadPhoto(id, base64, file.name);
         const d = await api.getPerson(id);
         setPhotos(d.photos || []);
-        showMsg("Фото загружено");
-      } catch (err: any) { showMsg("Ошибка: " + err.message); }
+        toast.success("Фото загружено");
+      } catch (err: any) { toast.error(err.message || "Ошибка"); }
+      finally { setUploading(false); }
     };
     reader.readAsDataURL(file);
     if (fileRef.current) fileRef.current.value = "";
@@ -199,12 +237,14 @@ function PersonEditor() {
 
   async function handleDeletePhoto() {
     if (!deletePhotoName) return;
+    setDeletingPhoto(true);
     try {
       await api.deletePhoto(id, deletePhotoName);
       setPhotos((prev) => prev.filter((p) => p !== deletePhotoName));
       setDeletePhotoName(null);
-      showMsg("Фото удалено");
-    } catch (e: any) { showMsg("Ошибка: " + e.message); }
+      toast.success("Фото удалено");
+    } catch (e: any) { toast.error(e.message || "Ошибка"); }
+    finally { setDeletingPhoto(false); }
   }
 
   if (loading) {
@@ -214,7 +254,7 @@ function PersonEditor() {
     return <div className="max-w-4xl mx-auto px-4 py-16 text-center"><p className="text-muted-foreground">Человек не найден</p></div>;
   }
 
-  const usedIds = [id, fatherId, motherId, ...spouses.map((s: any) => s.id), ...children.map((c: any) => c.id)].filter(Boolean) as number[];
+  const usedIds = [id, fatherId, motherId, ...spouses.map((s) => s.id), ...children.map((c) => c.id)].filter(Boolean) as number[];
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
@@ -232,12 +272,6 @@ function PersonEditor() {
         </Link>
       </div>
 
-      {message && (
-        <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${message.startsWith("Ошибка") ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-700 dark:text-green-400"}`}>
-          {message}
-        </div>
-      )}
-
       <Tabs defaultValue="info">
         <TabsList className="w-full">
           <TabsTrigger value="info" className="flex-1">Информация</TabsTrigger>
@@ -252,18 +286,18 @@ function PersonEditor() {
             <CardContent className="pt-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Фамилия</Label>
-                  <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                  <Label htmlFor="field-lastName">Фамилия</Label>
+                  <Input id="field-lastName" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                 </div>
                 <div>
-                  <Label>Имя</Label>
-                  <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                  <Label htmlFor="field-firstName">Имя</Label>
+                  <Input id="field-firstName" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                 </div>
               </div>
               <div>
-                <Label>Пол</Label>
+                <Label htmlFor="field-sex">Пол</Label>
                 <Select value={form.sex} onValueChange={(v) => setForm({ ...form, sex: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="field-sex"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1">Мужской</SelectItem>
                     <SelectItem value="0">Женский</SelectItem>
@@ -272,44 +306,44 @@ function PersonEditor() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Дата рождения (ДД.ММ.ГГГГ)</Label>
-                  <Input value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} placeholder="01.01.1990" />
+                  <Label htmlFor="field-birthDay">Дата рождения (ДД.ММ.ГГГГ)</Label>
+                  <Input id="field-birthDay" value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} placeholder="01.01.1990" />
                 </div>
                 <div>
-                  <Label>Место рождения</Label>
-                  <Input value={form.birthPlace} onChange={(e) => setForm({ ...form, birthPlace: e.target.value })} />
+                  <Label htmlFor="field-birthPlace">Место рождения</Label>
+                  <Input id="field-birthPlace" value={form.birthPlace} onChange={(e) => setForm({ ...form, birthPlace: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Дата смерти</Label>
-                  <Input value={form.deathDay} onChange={(e) => setForm({ ...form, deathDay: e.target.value })} placeholder="Пусто = жив" />
+                  <Label htmlFor="field-deathDay">Дата смерти</Label>
+                  <Input id="field-deathDay" value={form.deathDay} onChange={(e) => setForm({ ...form, deathDay: e.target.value })} placeholder="Пусто = жив" />
                 </div>
                 <div>
-                  <Label>Место смерти</Label>
-                  <Input value={form.deathPlace} onChange={(e) => setForm({ ...form, deathPlace: e.target.value })} />
+                  <Label htmlFor="field-deathPlace">Место смерти</Label>
+                  <Input id="field-deathPlace" value={form.deathPlace} onChange={(e) => setForm({ ...form, deathPlace: e.target.value })} />
                 </div>
               </div>
               <div>
-                <Label>Адрес</Label>
-                <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                <Label htmlFor="field-address">Адрес</Label>
+                <Input id="field-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
               </div>
               <div>
-                <Label>Дата свадьбы</Label>
-                <Input value={form.marryDay} onChange={(e) => setForm({ ...form, marryDay: e.target.value })} placeholder="ДД.ММ.ГГГГ" />
+                <Label htmlFor="field-marryDay">Дата свадьбы</Label>
+                <Input id="field-marryDay" value={form.marryDay} onChange={(e) => setForm({ ...form, marryDay: e.target.value })} placeholder="ДД.ММ.ГГГГ" />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>Порядок (отец)</Label>
-                  <Input type="number" value={form.orderByDad} onChange={(e) => setForm({ ...form, orderByDad: e.target.value })} />
+                  <Label htmlFor="field-orderByDad">Порядок (отец)</Label>
+                  <Input id="field-orderByDad" type="number" value={form.orderByDad} onChange={(e) => setForm({ ...form, orderByDad: e.target.value })} />
                 </div>
                 <div>
-                  <Label>Порядок (мать)</Label>
-                  <Input type="number" value={form.orderByMom} onChange={(e) => setForm({ ...form, orderByMom: e.target.value })} />
+                  <Label htmlFor="field-orderByMom">Порядок (мать)</Label>
+                  <Input id="field-orderByMom" type="number" value={form.orderByMom} onChange={(e) => setForm({ ...form, orderByMom: e.target.value })} />
                 </div>
                 <div>
-                  <Label>Порядок (супруг)</Label>
-                  <Input type="number" value={form.orderBySpouse} onChange={(e) => setForm({ ...form, orderBySpouse: e.target.value })} />
+                  <Label htmlFor="field-orderBySpouse">Порядок (супруг)</Label>
+                  <Input id="field-orderBySpouse" type="number" value={form.orderBySpouse} onChange={(e) => setForm({ ...form, orderBySpouse: e.target.value })} />
                 </div>
               </div>
               <div className="flex justify-end pt-4">
@@ -347,7 +381,7 @@ function PersonEditor() {
           <Card>
             <CardHeader><CardTitle className="text-base">Супруги</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {spouses.map((s: any) => (
+              {spouses.map((s) => (
                 <div key={s.id} className="flex items-center gap-2 p-2 border rounded-md">
                   <span className="flex-1 text-sm">{s.lastName} {s.firstName} (ID: {s.id})</span>
                   <Button variant="ghost" size="icon" onClick={() => setRemoveSpouseId(s.id)}>
@@ -357,7 +391,7 @@ function PersonEditor() {
               ))}
               <div>
                 <Label>Добавить супруга</Label>
-                <PersonSearchSelect onChange={handleAddSpouse} placeholder="Поиск..." excludeIds={usedIds} />
+                <PersonSearchSelect onChange={handleAddSpouse} placeholder="Поиск..." excludeIds={usedIds} disabled={addingSpouse} />
               </div>
             </CardContent>
           </Card>
@@ -366,7 +400,7 @@ function PersonEditor() {
           <Card>
             <CardHeader><CardTitle className="text-base">Дети</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {children.map((c: any) => (
+              {children.map((c) => (
                 <div key={c.id} className="flex items-center gap-2 p-2 border rounded-md">
                   <span className="flex-1 text-sm">{c.lastName} {c.firstName} (ID: {c.id})</span>
                   <Button variant="ghost" size="icon" onClick={() => setRemoveChildId(c.id)}>
@@ -376,7 +410,7 @@ function PersonEditor() {
               ))}
               <div>
                 <Label>Добавить ребёнка</Label>
-                <PersonSearchSelect onChange={handleAddChild} placeholder="Поиск..." excludeIds={usedIds} />
+                <PersonSearchSelect onChange={handleAddChild} placeholder="Поиск..." excludeIds={usedIds} disabled={addingChild} />
               </div>
             </CardContent>
           </Card>
@@ -387,8 +421,8 @@ function PersonEditor() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Фотографии ({photos.length})</CardTitle>
-              <Button size="sm" className="gap-2" onClick={() => fileRef.current?.click()}>
-                <Upload className="h-4 w-4" /> Загрузить
+              <Button size="sm" className="gap-2" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                <Upload className="h-4 w-4" /> {uploading ? "Загрузка..." : "Загрузить"}
               </Button>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUploadPhoto} />
             </CardHeader>
@@ -429,8 +463,8 @@ function PersonEditor() {
                 placeholder="Текст биографии..."
               />
               <div className="flex justify-end">
-                <Button onClick={handleSaveBio} className="gap-2">
-                  <Save className="h-4 w-4" /> Сохранить биографию
+                <Button onClick={handleSaveBio} disabled={savingBio} className="gap-2">
+                  <Save className="h-4 w-4" /> {savingBio ? "Сохранение..." : "Сохранить биографию"}
                 </Button>
               </div>
             </CardContent>
@@ -447,7 +481,7 @@ function PersonEditor() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePhoto} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeletePhoto} disabled={deletingPhoto} className="bg-destructive text-destructive-foreground">{deletingPhoto ? "Удаление..." : "Удалить"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -461,7 +495,7 @@ function PersonEditor() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveSpouse} className="bg-destructive text-destructive-foreground">Убрать</AlertDialogAction>
+            <AlertDialogAction onClick={handleRemoveSpouse} disabled={removingSpouse} className="bg-destructive text-destructive-foreground">{removingSpouse ? "Удаление..." : "Убрать"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -475,7 +509,7 @@ function PersonEditor() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveChild} className="bg-destructive text-destructive-foreground">Убрать</AlertDialogAction>
+            <AlertDialogAction onClick={handleRemoveChild} disabled={removingChild} className="bg-destructive text-destructive-foreground">{removingChild ? "Удаление..." : "Убрать"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

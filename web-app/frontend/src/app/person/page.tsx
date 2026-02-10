@@ -21,14 +21,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, PersonCard, PersonBrief } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { toast } from "sonner";
 
 function PersonContent() {
   const searchParams = useSearchParams();
   const { canEdit } = useAuth();
   const id = Number(searchParams.get("id")) || 1;
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PersonCard | null>(null);
   const [bio, setBio] = useState<string | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -47,7 +48,7 @@ function PersonContent() {
           api.getBio(id).then((b) => setBio(b.text)).catch(() => {});
         }
       })
-      .catch(console.error)
+      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
       .finally(() => setLoading(false));
 
     api.checkFavorite(id).then(d => setIsFav(d.isFavorite)).catch(() => {});
@@ -62,7 +63,7 @@ function PersonContent() {
         await api.addFavorite(id);
         setIsFav(true);
       }
-    } catch (e) { console.error(e); }
+    } catch (e: any) { toast.error(e.message || "Не удалось обновить избранное"); }
   };
 
   const photos = data?.photos ?? [];
@@ -110,11 +111,11 @@ function PersonContent() {
       {/* Navigation */}
       <div className="flex items-center gap-2 mb-6">
         <Link href={`/person?id=${id - 1}`} prefetch={false}>
-          <Button variant="outline" size="icon"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" aria-label="Предыдущий"><ChevronLeft className="h-4 w-4" /></Button>
         </Link>
         <Badge variant="secondary">ID: {person.id}</Badge>
         <Link href={`/person?id=${id + 1}`} prefetch={false}>
-          <Button variant="outline" size="icon"><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" aria-label="Следующий"><ChevronRight className="h-4 w-4" /></Button>
         </Link>
         <div className="flex-1" />
         <Link href={`/tree?id=${id}`} prefetch={false}>
@@ -229,7 +230,7 @@ function PersonContent() {
                     {spouses.length === 1 ? "Супруг(а)" : "Супруги"}
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {spouses.map((s: any) => (
+                    {spouses.map((s) => (
                       <PersonMiniCard key={s.id} person={s} relation={s.sex === 1 ? "Муж" : "Жена"} />
                     ))}
                   </div>
@@ -239,7 +240,7 @@ function PersonContent() {
                 <div>
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Дети ({children.length})</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {children.map((c: any) => (
+                    {children.map((c) => (
                       <PersonMiniCard key={c.id} person={c} relation={c.sex === 1 ? "Сын" : "Дочь"} />
                     ))}
                   </div>
@@ -273,6 +274,8 @@ function PersonContent() {
       <AnimatePresence>
         {lightboxOpen && (
           <motion.div
+            role="dialog"
+            aria-label="Просмотр фото"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -282,6 +285,7 @@ function PersonContent() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Закрыть"
               className="absolute top-4 right-4 text-white hover:bg-white/20 z-10"
               onClick={() => setLightboxOpen(false)}
             >
@@ -289,10 +293,10 @@ function PersonContent() {
             </Button>
             {photos.length > 1 && (
               <>
-                <Button variant="ghost" size="icon" className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); prevPhoto(); }}>
+                <Button variant="ghost" size="icon" aria-label="Предыдущее фото" className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); prevPhoto(); }}>
                   <ChevronLeft className="h-8 w-8" />
                 </Button>
-                <Button variant="ghost" size="icon" className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); nextPhoto(); }}>
+                <Button variant="ghost" size="icon" aria-label="Следующее фото" className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); nextPhoto(); }}>
                   <ChevronRight className="h-8 w-8" />
                 </Button>
               </>
@@ -303,7 +307,7 @@ function PersonContent() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               src={mediaUrl(photos[photoIndex])}
-              alt=""
+              alt={person.lastName + ' ' + person.firstName}
               className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
@@ -326,7 +330,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PersonMiniCard({ person, relation }: { person: any; relation: string }) {
+function PersonMiniCard({ person, relation }: { person: PersonBrief; relation: string }) {
   const isAlive = !person.deathDay || person.deathDay.trim() === "";
   return (
     <Link href={`/person?id=${person.id}`} prefetch={false}>

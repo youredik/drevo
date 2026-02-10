@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, EventItem } from "@/lib/api";
+import { toast } from "sonner";
 
 const quickActions = [
   { href: "/tree", label: "Древо поколений", icon: GitFork, color: "text-primary" },
@@ -29,7 +30,7 @@ export default function HomePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [personCount, setPersonCount] = useState<number | null>(null);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function HomePage() {
         setPersonCount(info.personCount);
         setEvents(eventsData.events.slice(0, 6));
       })
-      .catch(console.error)
+      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -153,7 +154,7 @@ export default function HomePage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {events.map((event: any, i: number) => (
+            {events.map((event, i) => (
               <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="flex items-center gap-4 py-4">

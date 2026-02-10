@@ -94,7 +94,7 @@ export default function AdminPersonsPage() {
     api.createPerson({
       firstName: newPerson.firstName,
       lastName: newPerson.lastName,
-      sex: Number(newPerson.sex),
+      sex: Number(newPerson.sex) as 0 | 1,
     }).then((d) => {
       setCreateOpen(false);
       setNewPerson({ firstName: "", lastName: "", sex: "1" });

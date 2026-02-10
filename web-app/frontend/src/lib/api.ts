@@ -1,3 +1,160 @@
+// ─── Types ───────────────────────────────────────────
+
+export interface Person {
+  id: number;
+  sex: 0 | 1;
+  firstName: string;
+  lastName: string;
+  fatherId: number;
+  motherId: number;
+  birthPlace: string;
+  birthDay: string;
+  deathPlace: string;
+  deathDay: string;
+  address: string;
+  spouseIds: number[];
+  childrenIds: number[];
+  orderByDad: number;
+  orderByMom: number;
+  orderBySpouse: number;
+  marryDay: string;
+}
+
+export interface PersonBrief {
+  id: number;
+  firstName: string;
+  lastName: string;
+  sex: 0 | 1;
+  birthDay: string;
+  deathDay: string;
+  photo: string;
+  childCount: number;
+  age: string;
+}
+
+export interface PersonCard {
+  person: Person;
+  father: PersonBrief | null;
+  mother: PersonBrief | null;
+  spouses: PersonBrief[];
+  children: PersonBrief[];
+  photos: string[];
+  age: string;
+  zodiac: string;
+  hasBio: boolean;
+  hasLockedBio: boolean;
+}
+
+export interface SearchResult {
+  id: number;
+  firstName: string;
+  lastName: string;
+  sex: 0 | 1;
+  birthDay: string;
+  deathDay: string;
+  address: string;
+  age: string;
+  matchField: string;
+}
+
+export interface EventItem {
+  id: number;
+  firstName: string;
+  lastName: string;
+  sex: 0 | 1;
+  birthDay: string;
+  deathDay: string;
+  marryDay: string;
+  eventType: "birthday" | "memorial" | "wedding";
+  eventDate: string;
+  yearsCount: number;
+  daysUntil: number;
+  photo: string;
+}
+
+export interface TreeNode {
+  id: number;
+  firstName: string;
+  lastName: string;
+  sex: 0 | 1;
+  isAlive: boolean;
+  photo: string;
+  children: TreeNode[];
+}
+
+export interface KinshipResult {
+  person1: PersonBrief;
+  person2: PersonBrief;
+  commonAncestor: PersonBrief | null;
+  pathFromPerson1: PersonBrief[];
+  pathFromPerson2: PersonBrief[];
+  relationship: string;
+}
+
+export interface StatsData {
+  totalPersons: number;
+  maleCount: number;
+  femaleCount: number;
+  aliveCount: number;
+  deceasedCount: number;
+  ageDistribution: Record<string, number>;
+  longestLived: PersonBrief[];
+}
+
+export interface AppUser {
+  id: string;
+  login: string;
+  role: "admin" | "manager" | "viewer";
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  userLogin: string;
+  action: "create" | "update" | "delete";
+  resourceType: "person" | "user";
+  resourceId: string;
+  details?: string;
+  timestamp: string;
+}
+
+export interface AppConfig {
+  appName: string;
+  appDescription: string;
+  telegramLink: string;
+  defaultEventDays: number;
+  defaultStartPage: "home" | "tree" | "events";
+  aboutText: string;
+  infoText: string;
+  dataCollectionDate: string;
+}
+
+export interface ValidationIssue {
+  type: string;
+  personId: number;
+  message: string;
+}
+
+export interface PersonFormData {
+  sex: 0 | 1;
+  firstName: string;
+  lastName: string;
+  fatherId?: number;
+  motherId?: number;
+  birthPlace?: string;
+  birthDay?: string;
+  deathPlace?: string;
+  deathDay?: string;
+  address?: string;
+  orderByDad?: number;
+  orderByMom?: number;
+  orderBySpouse?: number;
+  marryDay?: string;
+}
+
+// ─── HTTP client ────────────────────────────────────
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -56,46 +213,35 @@ export const api = {
     telegramLink: string;
   }>("/api/info"),
 
-  getPerson: (id: number) => request<{
-    person: any;
-    father: any;
-    mother: any;
-    spouses: any[];
-    children: any[];
-    photos: string[];
-    age: string;
-    zodiac: string;
-    hasBio: boolean;
-    hasLockedBio: boolean;
-  }>(`/api/persons/${id}`),
+  getPerson: (id: number) => request<PersonCard>(`/api/persons/${id}`),
 
   getPersons: (page = 1, limit = 50) =>
-    request<{ items: any[]; total: number; page: number; limit: number }>(
+    request<{ items: Person[]; total: number; page: number; limit: number }>(
       `/api/persons?page=${page}&limit=${limit}`
     ),
 
   search: (q: string) =>
-    request<{ results: any[]; count: number }>(`/api/search?q=${encodeURIComponent(q)}`),
+    request<{ results: SearchResult[]; count: number }>(`/api/search?q=${encodeURIComponent(q)}`),
 
   getEvents: (days = 5, yesterday = true) =>
-    request<{ events: any[]; count: number }>(
+    request<{ events: EventItem[]; count: number }>(
       `/api/events?days=${days}&yesterday=${yesterday}`
     ),
 
   getTree: (id: number, type: "ancestors" | "descendants" = "ancestors") =>
-    request<any>(`/api/tree/${id}?type=${type}`),
+    request<TreeNode>(`/api/tree/${id}?type=${type}`),
 
   getKinship: (id1: number, id2: number) =>
-    request<any>(`/api/kinship?id1=${id1}&id2=${id2}`),
+    request<KinshipResult>(`/api/kinship?id1=${id1}&id2=${id2}`),
 
-  getFamily: (id: number) => request<{ members: any[] }>(`/api/family/${id}`),
+  getFamily: (id: number) => request<{ members: { person: PersonBrief; relation: string; category: string }[] }>(`/api/family/${id}`),
 
-  getStats: () => request<any>("/api/stats"),
+  getStats: () => request<StatsData>("/api/stats"),
 
   getBio: (id: number, type: "open" | "lock" = "open") =>
     request<{ text: string }>(`/api/bio/${id}?type=${type}`),
 
-  getFavorites: () => request<{ favorites: any[] }>("/api/favorites"),
+  getFavorites: () => request<{ favorites: PersonCard[] }>("/api/favorites"),
 
   addFavorite: (personId: number) =>
     request<{ slot: number; personId: number }>("/api/favorites", {
@@ -119,14 +265,14 @@ export const api = {
 
   // ─── Admin: Persons ──────────────────────────────────
 
-  createPerson: (data: any) =>
-    request<{ person: any }>("/api/admin/persons", {
+  createPerson: (data: PersonFormData) =>
+    request<{ person: Person }>("/api/admin/persons", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  updatePerson: (id: number, data: any) =>
-    request<{ person: any }>(`/api/admin/persons/${id}`, {
+  updatePerson: (id: number, data: Partial<PersonFormData>) =>
+    request<{ person: Person }>(`/api/admin/persons/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
@@ -157,7 +303,7 @@ export const api = {
     }),
 
   setParents: (id: number, fatherId: number, motherId: number) =>
-    request<{ person: any }>(`/api/admin/persons/${id}/parent`, {
+    request<{ person: Person }>(`/api/admin/persons/${id}/parent`, {
       method: "POST",
       body: JSON.stringify({ fatherId, motherId }),
     }),
@@ -181,16 +327,16 @@ export const api = {
 
   // ─── Admin: Users ────────────────────────────────────
 
-  getUsers: () => request<{ users: any[] }>("/api/admin/users"),
+  getUsers: () => request<{ users: AppUser[] }>("/api/admin/users"),
 
   createUser: (login: string, password: string, role: string) =>
-    request<{ user: any }>("/api/admin/users", {
+    request<{ user: AppUser }>("/api/admin/users", {
       method: "POST",
       body: JSON.stringify({ login, password, role }),
     }),
 
   updateUser: (id: string, data: { login?: string; password?: string; role?: string }) =>
-    request<{ user: any }>(`/api/admin/users/${id}`, {
+    request<{ user: AppUser }>(`/api/admin/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
@@ -200,9 +346,9 @@ export const api = {
 
   // ─── Admin: Config ───────────────────────────────────
 
-  getConfig: () => request<{ config: any }>("/api/admin/config"),
+  getConfig: () => request<{ config: AppConfig }>("/api/admin/config"),
 
-  saveConfig: (config: any) =>
+  saveConfig: (config: Partial<AppConfig>) =>
     request<{ ok: boolean }>("/api/admin/config", {
       method: "PUT",
       body: JSON.stringify(config),
@@ -211,9 +357,9 @@ export const api = {
   // ─── Admin: Misc ─────────────────────────────────────
 
   getAuditLogs: (limit = 50) =>
-    request<{ logs: any[] }>(`/api/admin/audit-logs?limit=${limit}`),
+    request<{ logs: AuditLog[] }>(`/api/admin/audit-logs?limit=${limit}`),
 
-  validate: () => request<{ issues: any[]; counts: Record<string, number> }>("/api/admin/validate"),
+  validate: () => request<{ issues: ValidationIssue[]; counts: Record<string, number> }>("/api/admin/validate"),
 
   exportCsv: () => requestText("/api/admin/export"),
 

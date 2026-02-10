@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, EventItem } from "@/lib/api";
+import { toast } from "sonner";
 
 const MONTH_NAMES = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -29,13 +30,13 @@ function getCalendarDays(year: number, month: number) {
 }
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(7);
 
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [allEvents, setAllEvents] = useState<any[]>([]);
+  const [allEvents, setAllEvents] = useState<EventItem[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function EventsPage() {
     api
       .getEvents(days, true)
       .then((data) => setEvents(data.events))
-      .catch(console.error)
+      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
       .finally(() => setLoading(false));
   }, [days]);
 
@@ -52,7 +53,7 @@ export default function EventsPage() {
       api
         .getEvents(365, false)
         .then((data) => setAllEvents(data.events))
-        .catch(console.error);
+        .catch((e) => toast.error(e.message || "Ошибка загрузки"));
     }
   }, [viewMode]);
 
@@ -86,7 +87,7 @@ export default function EventsPage() {
   };
 
   // Group events by daysUntil
-  const grouped = events.reduce<Record<string, any[]>>((acc, e) => {
+  const grouped = events.reduce<Record<string, EventItem[]>>((acc, e) => {
     const label = daysLabel(e.daysUntil);
     if (!acc[label]) acc[label] = [];
     acc[label].push(e);
@@ -111,7 +112,7 @@ export default function EventsPage() {
     return eventMonth === calendarMonth + 1;
   });
 
-  const eventsByDay: Record<number, any[]> = {};
+  const eventsByDay: Record<number, EventItem[]> = {};
   eventsForMonth.forEach((ev) => {
     const dayNum = parseInt(ev.eventDate.split(".")[0], 10);
     if (!eventsByDay[dayNum]) eventsByDay[dayNum] = [];
@@ -128,7 +129,7 @@ export default function EventsPage() {
     setCalendarDate(new Date(calendarYear, calendarMonth + 1, 1));
   };
 
-  const renderEventCard = (event: any, i: number) => (
+  const renderEventCard = (event: EventItem, i: number) => (
     <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="flex items-center gap-4 py-3">
@@ -224,7 +225,7 @@ export default function EventsPage() {
                     {label} ({items.length})
                   </h2>
                   <div className="space-y-2">
-                    {items.map((event: any, i: number) => renderEventCard(event, i))}
+                    {items.map((event, i) => renderEventCard(event, i))}
                   </div>
                 </div>
               ))}
@@ -280,7 +281,7 @@ export default function EventsPage() {
                     {day}
                   </span>
                   <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                    {dayEvents.map((ev: any, i: number) => (
+                    {dayEvents.map((ev, i) => (
                       <div
                         key={i}
                         className={`h-1.5 w-1.5 rounded-full ${
@@ -328,7 +329,7 @@ export default function EventsPage() {
                 </Card>
               ) : (
                 <div className="space-y-2">
-                  {selectedDayEvents.map((event: any, i: number) => renderEventCard(event, i))}
+                  {selectedDayEvents.map((event, i) => renderEventCard(event, i))}
                 </div>
               )}
             </div>

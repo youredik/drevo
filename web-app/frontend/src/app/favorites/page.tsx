@@ -7,16 +7,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, PersonCard } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function FavoritesPage() {
-  const [favorites, setFavorites] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<PersonCard[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api.getFavorites()
       .then((data) => setFavorites(data.favorites))
-      .catch(console.error)
+      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -24,8 +25,8 @@ export default function FavoritesPage() {
     try {
       await api.removeFavorite(personId);
       setFavorites((prev) => prev.filter((f) => f.person.id !== personId));
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось удалить из избранного");
     }
   };
 
@@ -52,7 +53,7 @@ export default function FavoritesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {favorites.map((card: any) => {
+          {favorites.map((card) => {
             const p = card.person;
             const isAlive = !p.deathDay || p.deathDay.trim() === "";
             const photo = card.photos?.[0] || (p.sex === 1 ? "m.jpg" : "w.jpg");
@@ -61,6 +62,7 @@ export default function FavoritesPage() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Удалить из избранного"
                   className="absolute top-2 right-2 z-10 h-7 w-7 bg-black/40 text-white hover:bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={(e) => { e.preventDefault(); removeFav(p.id); }}
                 >

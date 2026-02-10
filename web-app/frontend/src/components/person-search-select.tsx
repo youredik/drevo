@@ -9,9 +9,10 @@ interface Props {
   onChange: (id: number | undefined) => void;
   placeholder?: string;
   excludeIds?: number[];
+  disabled?: boolean;
 }
 
-export function PersonSearchSelect({ value, onChange, placeholder = "Поиск человека...", excludeIds = [] }: Props) {
+export function PersonSearchSelect({ value, onChange, placeholder = "Поиск человека...", excludeIds = [], disabled = false }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -68,6 +69,7 @@ export function PersonSearchSelect({ value, onChange, placeholder = "Поиск 
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => query.length >= 2 && setOpen(true)}
           placeholder={placeholder}
+          disabled={disabled}
         />
       )}
       {open && results.length > 0 && (
