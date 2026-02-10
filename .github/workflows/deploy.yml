@@ -21,6 +21,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            web-app/functions/package-lock.json
+            web-app/frontend/package-lock.json
 
       # ─── Build backend ───────────────────────────────────
       - name: Install backend deps
@@ -47,10 +51,20 @@ jobs:
           NEXT_PUBLIC_API_URL: ""
 
       # ─── Install YC CLI ──────────────────────────────────
+      - name: Cache YC CLI
+        id: yc-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/yandex-cloud
+          key: yc-cli-${{ runner.os }}
+
       - name: Install Yandex Cloud CLI
+        if: steps.yc-cache.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-          echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
+
+      - name: Add YC CLI to PATH
+        run: echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
       - name: Configure YC CLI
         run: |
@@ -101,12 +115,14 @@ jobs:
         run: |
           echo "=== Build output ==="
           find web-app/frontend/out -type f | wc -l
-          find web-app/frontend/out -type f | head -30
 
-          echo "=== Uploading to ${{ env.SPA_BUCKET }} ==="
+          echo "=== Uploading to ${{ env.SPA_BUCKET }} (parallel) ==="
           cd web-app/frontend/out
-          find . -type f | while IFS= read -r file; do
-            key="${file#./}"
+
+          upload_file() {
+            local file="$1"
+            local key="${file#./}"
+            local ct
             case "${key##*.}" in
               html) ct="text/html; charset=utf-8" ;;
               css)  ct="text/css" ;;
@@ -126,9 +142,13 @@ jobs:
               --bucket=${{ env.SPA_BUCKET }} \
               --key="$key" \
               --body="$file" \
-              --content-type="$ct" > /dev/null
-            echo "  uploaded: $key ($ct)"
-          done
+              --content-type="$ct" > /dev/null \
+            && echo "  uploaded: $key ($ct)" \
+            || echo "  FAILED: $key"
+          }
+          export -f upload_file
+
+          find . -type f -print0 | xargs -0 -P 20 -n 1 bash -c 'upload_file "$1"' _
           echo "=== Upload complete ==="
 
       # ─── Cleanup ─────────────────────────────────────────

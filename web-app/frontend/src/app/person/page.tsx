@@ -95,7 +95,7 @@ function PersonContent() {
     return (
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-16 text-center">
         <p className="text-muted-foreground text-lg">Человек не найден</p>
-        <Link href="/">
+        <Link href="/" prefetch={false}>
           <Button className="mt-4">На главную</Button>
         </Link>
       </div>
@@ -109,28 +109,28 @@ function PersonContent() {
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
       {/* Navigation */}
       <div className="flex items-center gap-2 mb-6">
-        <Link href={`/person?id=${id - 1}`}>
+        <Link href={`/person?id=${id - 1}`} prefetch={false}>
           <Button variant="outline" size="icon"><ChevronLeft className="h-4 w-4" /></Button>
         </Link>
         <Badge variant="secondary">ID: {person.id}</Badge>
-        <Link href={`/person?id=${id + 1}`}>
+        <Link href={`/person?id=${id + 1}`} prefetch={false}>
           <Button variant="outline" size="icon"><ChevronRight className="h-4 w-4" /></Button>
         </Link>
         <div className="flex-1" />
-        <Link href={`/tree?id=${id}`}>
+        <Link href={`/tree?id=${id}`} prefetch={false}>
           <Button variant="outline" size="sm" className="gap-2">
             <GitFork className="h-4 w-4" />
             <span className="hidden sm:inline">Древо</span>
           </Button>
         </Link>
-        <Link href={`/kinship?id1=${id}`}>
+        <Link href={`/kinship?id1=${id}`} prefetch={false}>
           <Button variant="outline" size="sm" className="gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Родство</span>
           </Button>
         </Link>
         {canEdit && (
-          <Link href={`/admin/person?id=${id}`}>
+          <Link href={`/admin/person?id=${id}`} prefetch={false}>
             <Button variant="outline" size="sm" className="gap-2">
               <Pencil className="h-4 w-4" />
               <span className="hidden sm:inline">Редактировать</span>
@@ -329,7 +329,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function PersonMiniCard({ person, relation }: { person: any; relation: string }) {
   const isAlive = !person.deathDay || person.deathDay.trim() === "";
   return (
-    <Link href={`/person?id=${person.id}`}>
+    <Link href={`/person?id=${person.id}`} prefetch={false}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="flex items-center gap-3 py-3">
           <img

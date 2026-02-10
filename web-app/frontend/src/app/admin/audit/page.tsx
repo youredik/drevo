@@ -113,7 +113,7 @@ export default function AuditPage() {
                   </p>
                 </div>
                 {log.resourceType === "person" && log.resourceId && (
-                  <Link href={`/person?id=${log.resourceId}`}>
+                  <Link href={`/person?id=${log.resourceId}`} prefetch={false}>
                     <Button variant="ghost" size="sm">Открыть</Button>
                   </Link>
                 )}

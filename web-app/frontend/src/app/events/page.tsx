@@ -129,7 +129,7 @@ export default function EventsPage() {
   };
 
   const renderEventCard = (event: any, i: number) => (
-    <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`}>
+    <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="flex items-center gap-4 py-3">
           <img

@@ -140,7 +140,7 @@ function SearchContent() {
           {filteredResults.map((r: any) => {
             const isAlive = !r.deathDay || r.deathDay.trim() === "";
             return (
-              <Link key={r.id} href={`/person?id=${r.id}`}>
+              <Link key={r.id} href={`/person?id=${r.id}`} prefetch={false}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="flex items-center gap-4 py-3">
                     <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${

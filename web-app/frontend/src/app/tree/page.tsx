@@ -211,6 +211,7 @@ function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
     <>
       <Link
         href={`/person?id=${node.id}`}
+        prefetch={false}
         className="absolute flex flex-col items-center gap-1 group"
         style={{
           left: x,
@@ -373,6 +374,7 @@ function TreeNodeComponent({
 
         <Link
           href={`/person?id=${node.id}`}
+          prefetch={false}
           className="flex items-center gap-2 hover:bg-muted/50 rounded-lg px-2 py-1 transition-colors"
         >
           <img

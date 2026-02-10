@@ -66,7 +66,7 @@ export function Navbar() {
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
-                <Link key={item.href} href={item.href}>
+                <Link key={item.href} href={item.href} prefetch={false}>
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
@@ -105,7 +105,7 @@ export function Navbar() {
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link href="/admin/persons">
+                        <Link href="/admin/persons" prefetch={false}>
                           <ClipboardList className="h-4 w-4 mr-2" />
                           Управление
                         </Link>
@@ -115,19 +115,19 @@ export function Navbar() {
                   {isAdmin && (
                     <>
                       <DropdownMenuItem asChild>
-                        <Link href="/settings">
+                        <Link href="/settings" prefetch={false}>
                           <Settings className="h-4 w-4 mr-2" />
                           Настройки
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/users">
+                        <Link href="/users" prefetch={false}>
                           <Users className="h-4 w-4 mr-2" />
                           Пользователи
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/admin/audit">
+                        <Link href="/admin/audit" prefetch={false}>
                           <Shield className="h-4 w-4 mr-2" />
                           Журнал
                         </Link>
@@ -142,7 +142,7 @@ export function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Link href="/login">
+              <Link href="/login" prefetch={false}>
                 <Button variant="outline" size="sm" className="gap-2">
                   <LogIn className="h-4 w-4" />
                   Войти
@@ -162,6 +162,7 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}
@@ -180,7 +181,7 @@ export function Navbar() {
             </SheetTrigger>
             <SheetContent side="bottom" className="rounded-t-2xl">
               <div className="flex flex-col gap-2 py-4">
-                <Link href="/stats" onClick={() => setOpen(false)}>
+                <Link href="/stats" prefetch={false} onClick={() => setOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-3">
                     <BarChart3 className="h-5 w-5" />
                     Статистика
@@ -196,7 +197,7 @@ export function Navbar() {
                       {user.login} ({user.role === "admin" ? "Админ" : user.role === "manager" ? "Менеджер" : "Просмотр"})
                     </div>
                     {canEdit && (
-                      <Link href="/admin/persons" onClick={() => setOpen(false)}>
+                      <Link href="/admin/persons" prefetch={false} onClick={() => setOpen(false)}>
                         <Button variant="ghost" className="w-full justify-start gap-3">
                           <ClipboardList className="h-5 w-5" />
                           Управление
@@ -205,19 +206,19 @@ export function Navbar() {
                     )}
                     {isAdmin && (
                       <>
-                        <Link href="/settings" onClick={() => setOpen(false)}>
+                        <Link href="/settings" prefetch={false} onClick={() => setOpen(false)}>
                           <Button variant="ghost" className="w-full justify-start gap-3">
                             <Settings className="h-5 w-5" />
                             Настройки
                           </Button>
                         </Link>
-                        <Link href="/users" onClick={() => setOpen(false)}>
+                        <Link href="/users" prefetch={false} onClick={() => setOpen(false)}>
                           <Button variant="ghost" className="w-full justify-start gap-3">
                             <Users className="h-5 w-5" />
                             Пользователи
                           </Button>
                         </Link>
-                        <Link href="/admin/audit" onClick={() => setOpen(false)}>
+                        <Link href="/admin/audit" prefetch={false} onClick={() => setOpen(false)}>
                           <Button variant="ghost" className="w-full justify-start gap-3">
                             <Shield className="h-5 w-5" />
                             Журнал
@@ -231,7 +232,7 @@ export function Navbar() {
                     </Button>
                   </>
                 ) : (
-                  <Link href="/login" onClick={() => setOpen(false)}>
+                  <Link href="/login" prefetch={false} onClick={() => setOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start gap-3">
                       <LogIn className="h-5 w-5" />
                       Войти

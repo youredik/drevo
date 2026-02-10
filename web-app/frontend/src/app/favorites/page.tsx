@@ -66,7 +66,7 @@ export default function FavoritesPage() {
                 >
                   <X className="h-4 w-4" />
                 </Button>
-                <Link href={`/person?id=${p.id}`}>
+                <Link href={`/person?id=${p.id}`} prefetch={false}>
                   <CardContent className="flex flex-col items-center text-center gap-2 py-4">
                     <img
                       src={mediaUrl(photo)}

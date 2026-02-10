@@ -114,7 +114,7 @@ export default function HomePage() {
       {/* Quick actions */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12">
         {quickActions.map((action) => (
-          <Link key={action.href} href={action.href}>
+          <Link key={action.href} href={action.href} prefetch={false}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full">
               <CardContent className="flex flex-col items-center text-center gap-3 py-6">
                 <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -131,7 +131,7 @@ export default function HomePage() {
       <section className="mb-12">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Ближайшие события</h2>
-          <Link href="/events">
+          <Link href="/events" prefetch={false}>
             <Button variant="ghost" size="sm" className="gap-1">
               Все события
               <ArrowRight className="h-4 w-4" />
@@ -154,7 +154,7 @@ export default function HomePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {events.map((event: any, i: number) => (
-              <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`}>
+              <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="flex items-center gap-4 py-4">
                     <img
