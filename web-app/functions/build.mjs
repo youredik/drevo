@@ -27,24 +27,34 @@ await esbuild.build({
 
 console.log("✓ handler.js bundled");
 
-// 2. Copy data files
-cpSync(join(ASSETS, "fam.csv"), join(DIST, "data", "fam.csv"));
-console.log("✓ fam.csv copied");
+// 2. Copy data files (optional — on prod data comes from YDB)
+const famCsvSrc = join(ASSETS, "fam.csv");
+if (existsSync(famCsvSrc)) {
+  cpSync(famCsvSrc, join(DIST, "data", "fam.csv"));
+  console.log("✓ fam.csv copied");
+} else {
+  writeFileSync(join(DIST, "data", "fam.csv"), "");
+  console.log("✓ fam.csv created (empty — YDB mode)");
+}
 
-if (existsSync(join(ASSETS, "fav.csv"))) {
-  cpSync(join(ASSETS, "fav.csv"), join(DIST, "data", "fav.csv"));
+const favCsvSrc = join(ASSETS, "fav.csv");
+if (existsSync(favCsvSrc)) {
+  cpSync(favCsvSrc, join(DIST, "data", "fav.csv"));
   console.log("✓ fav.csv copied");
 } else {
   writeFileSync(join(DIST, "data", "fav.csv"), "");
   console.log("✓ fav.csv created (empty)");
 }
 
-// 3. Copy bio files
+// 3. Copy bio files (optional)
 const infoSrc = join(ASSETS, "info");
 const infoDst = join(DIST, "data", "info");
 if (existsSync(infoSrc)) {
   cpSync(infoSrc, infoDst, { recursive: true });
   console.log("✓ info/ copied");
+} else {
+  mkdirSync(infoDst, { recursive: true });
+  console.log("✓ info/ created (empty)");
 }
 
 // 4. Install ydb-sdk in dist (production only)
