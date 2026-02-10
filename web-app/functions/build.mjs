@@ -67,7 +67,7 @@ writeFileSync(
   )
 );
 
-execSync("npm install --production --no-optional", {
+execSync("npm install --production", {
   cwd: DIST,
   stdio: "inherit",
 });
