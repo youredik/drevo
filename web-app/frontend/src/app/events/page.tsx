@@ -33,6 +33,7 @@ function getCalendarDays(year: number, month: number) {
 
 export default function EventsPage() {
   const [days, setDays] = useState(7);
+  const [typeFilter, setTypeFilter] = useState<"all" | "birthday" | "memorial" | "wedding">("all");
 
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -41,7 +42,8 @@ export default function EventsPage() {
   const { data: listData, isLoading: loading } = useEvents(days, true);
   const { data: calendarData } = useEvents(viewMode === "calendar" ? 365 : null, false);
 
-  const events = listData?.events ?? [];
+  const rawEvents = listData?.events ?? [];
+  const events = typeFilter === "all" ? rawEvents : rawEvents.filter((e) => e.eventType === typeFilter);
   const allEvents = calendarData?.events ?? [];
 
   // Reset selected day when changing month
@@ -179,7 +181,24 @@ export default function EventsPage() {
         </TabsList>
 
         <TabsContent value="list">
-          <div className="flex items-center justify-end mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1">
+              {([
+                { key: "all" as const, label: "Все" },
+                { key: "birthday" as const, label: "Дни рождения" },
+                { key: "memorial" as const, label: "Памятные" },
+                { key: "wedding" as const, label: "Свадьбы" },
+              ]).map((f) => (
+                <Button
+                  key={f.key}
+                  variant={typeFilter === f.key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTypeFilter(f.key)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"

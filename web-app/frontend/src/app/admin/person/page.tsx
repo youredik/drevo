@@ -294,7 +294,26 @@ function PersonEditor() {
   }
 
   if (loading) {
-    return <div className="max-w-4xl mx-auto px-4 py-8"><Skeleton className="h-96 rounded-xl" /></div>;
+    return (
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Skeleton className="h-10 w-10 rounded" />
+          <Skeleton className="h-6 w-64" />
+        </div>
+        <Skeleton className="h-10 w-full rounded mb-4" />
+        <div className="rounded-xl border p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2"><Skeleton className="h-4 w-16" /><Skeleton className="h-10 w-full rounded" /></div>
+            <div className="space-y-2"><Skeleton className="h-4 w-12" /><Skeleton className="h-10 w-full rounded" /></div>
+          </div>
+          <div className="space-y-2"><Skeleton className="h-4 w-10" /><Skeleton className="h-10 w-full rounded" /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2"><Skeleton className="h-4 w-28" /><Skeleton className="h-10 w-full rounded" /></div>
+            <div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-10 w-full rounded" /></div>
+          </div>
+        </div>
+      </div>
+    );
   }
   if (!data) {
     return <div className="max-w-4xl mx-auto px-4 py-16 text-center"><p className="text-muted-foreground">Человек не найден</p></div>;

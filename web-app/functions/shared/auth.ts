@@ -6,7 +6,7 @@ import { isYdbConfigured } from "./ydb-client.js";
 import { loadUsers as ydbLoadUsers, upsertUser as ydbUpsertUser, deleteUserFromYdb } from "./ydb-repository.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "drevo-dev-secret-key-change-in-production";
-const TOKEN_EXPIRY = "24h";
+const TOKEN_EXPIRY = "7d";
 
 // Default users (seeded on first run)
 const defaultUsers: { login: string; role: AppUser["role"]; password: string }[] = [

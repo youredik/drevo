@@ -60,7 +60,10 @@ export const parentSchema = z.object({
 });
 
 export const photoUploadSchema = z.object({
-  data: z.string().min(1, "Укажите data (base64)"),
+  data: z.string().min(1, "Укажите data (base64)").refine(
+    (s) => Math.ceil(s.length * 0.75) <= 10 * 1024 * 1024,
+    { message: "Файл слишком большой (максимум 10 МБ)" }
+  ),
   filename: z.string().optional(),
 });
 

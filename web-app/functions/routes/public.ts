@@ -1,4 +1,4 @@
-import { join } from "path";
+import { join, resolve } from "path";
 import { existsSync, readFileSync } from "fs";
 import mime from "mime-types";
 import type { RouteContext, YcResponse } from "./types.js";
@@ -116,7 +116,9 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
   // ── GET /media/:filename ──
   if (method === "GET" && apiPath.startsWith("/media/")) {
     const filename = decodeURIComponent(apiPath.slice(7));
-    const filePath = join(MEDIA_PATH, filename);
+    const filePath = resolve(MEDIA_PATH, filename);
+    // Prevent path traversal
+    if (!filePath.startsWith(resolve(MEDIA_PATH))) return err(cors, "Недопустимый путь", 400);
     if (!existsSync(filePath)) return err(cors, "Файл не найден", 404);
     const contentType = (mime.lookup(filename) as string) || "application/octet-stream";
     const data = readFileSync(filePath);

@@ -3,7 +3,7 @@ import { json, err, matchPath, parseBody, requireRole, auditLog } from "./helper
 import {
   upsertPerson, deletePerson as ydbDeletePerson,
   addSpouse, removeSpouse, addChild, removeChild,
-  loadConfig, setConfigValue, getAuditLogs,
+  loadConfig, setConfigValue, getAuditLogs, deleteFavoriteBySlot,
 } from "../shared/ydb-repository.js";
 import { isYdbConfigured } from "../shared/ydb-client.js";
 import {
@@ -116,8 +116,11 @@ export async function adminRoutes(
     const personName = repo.getPerson(id);
     if (!personName) return err(cors, "Человек не найден", 404);
 
-    repo.removePerson(id);
-    if (useYdb) await ydbDeletePerson(id);
+    const { favoriteSlot } = repo.removePerson(id);
+    if (useYdb) {
+      await ydbDeletePerson(id);
+      if (favoriteSlot >= 0) await deleteFavoriteBySlot(favoriteSlot);
+    }
     await auditLog(useYdb, auth.user, "delete", "person", String(id), `${personName.lastName} ${personName.firstName}`);
     return json(cors, { deleted: true });
   }
@@ -211,6 +214,11 @@ export async function adminRoutes(
     const body = parsed.data;
 
     const imageData = Buffer.from(body.data, "base64");
+    // Validate image magic bytes
+    const isJpeg = imageData[0] === 0xFF && imageData[1] === 0xD8;
+    const isPng = imageData[0] === 0x89 && imageData[1] === 0x50 && imageData[2] === 0x4E && imageData[3] === 0x47;
+    const isWebp = imageData.length > 11 && imageData[0] === 0x52 && imageData[1] === 0x49 && imageData[8] === 0x57 && imageData[9] === 0x45;
+    if (!isJpeg && !isPng && !isWebp) return err(cors, "Допустимы только изображения (JPEG, PNG, WebP)", 400);
     const filename = repo.addPhoto(id, imageData, body.filename);
     return json(cors, { filename, photos: repo.getPhotos(id) });
   }

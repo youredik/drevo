@@ -25,9 +25,21 @@ export default function FavoritesPage() {
   }, []);
 
   const removeFav = async (personId: number) => {
+    const removed = favorites.find((f) => f.person.id === personId);
     try {
       await api.removeFavorite(personId);
       setFavorites((prev) => prev.filter((f) => f.person.id !== personId));
+      toast.success("Удалено из избранного", {
+        action: {
+          label: "Отменить",
+          onClick: async () => {
+            try {
+              await api.addFavorite(personId);
+              if (removed) setFavorites((prev) => [...prev, removed]);
+            } catch { toast.error("Не удалось восстановить"); }
+          },
+        },
+      });
     } catch (e: any) {
       toast.error(e.message || "Не удалось удалить из избранного");
     }

@@ -707,9 +707,9 @@ export class DataRepository {
     return person;
   }
 
-  removePerson(id: number): boolean {
+  removePerson(id: number): { deleted: boolean; favoriteSlot: number } {
     const person = this.persons.get(id);
-    if (!person) return false;
+    if (!person) return { deleted: false, favoriteSlot: -1 };
 
     // Remove from other persons' spouse/children lists
     for (const p of this.persons.values()) {
@@ -719,9 +719,13 @@ export class DataRepository {
       if (p.motherId === id) p.motherId = 0;
     }
 
+    // Clean favorites
+    const favSlot = this.favorites.indexOf(id);
+    if (favSlot >= 0) this.favorites[favSlot] = 0;
+
     this.persons.delete(id);
     this.photoCache.delete(id);
-    return true;
+    return { deleted: true, favoriteSlot: favSlot };
   }
 
   addSpouseRelation(personId: number, spouseId: number): void {

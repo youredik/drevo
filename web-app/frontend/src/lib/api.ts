@@ -157,6 +157,7 @@ export interface PersonFormData {
 // ─── HTTP client ────────────────────────────────────
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const REQUEST_TIMEOUT = 30_000; // 30 seconds
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("drevo_token") : null;
@@ -166,17 +167,26 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined" && token) {
-      localStorage.removeItem("drevo_token");
-      window.location.href = "/login";
-      throw new Error("Сессия истекла");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { ...options, headers, signal: controller.signal });
+    if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined" && token) {
+        localStorage.removeItem("drevo_token");
+        window.location.href = "/login";
+        throw new Error("Сессия истекла");
+      }
+      const error = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(error.error || `HTTP ${res.status}`);
     }
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || `HTTP ${res.status}`);
+    return res.json();
+  } catch (e: any) {
+    if (e.name === "AbortError") throw new Error("Превышено время ожидания ответа");
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return res.json();
 }
 
 async function requestText(path: string): Promise<string> {
@@ -184,17 +194,26 @@ async function requestText(path: string): Promise<string> {
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { headers });
-  if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined" && token) {
-      localStorage.removeItem("drevo_token");
-      window.location.href = "/login";
-      throw new Error("Сессия истекла");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { headers, signal: controller.signal });
+    if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined" && token) {
+        localStorage.removeItem("drevo_token");
+        window.location.href = "/login";
+        throw new Error("Сессия истекла");
+      }
+      const error = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(error.error || `HTTP ${res.status}`);
     }
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || `HTTP ${res.status}`);
+    return res.text();
+  } catch (e: any) {
+    if (e.name === "AbortError") throw new Error("Превышено время ожидания ответа");
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return res.text();
 }
 
 export function mediaUrl(filename: string): string {
