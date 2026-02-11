@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { gunzipSync } from "zlib";
 import jwt from "jsonwebtoken";
 
 // Mock YDB modules (ydb-sdk requires native gRPC not available in tests)
@@ -83,6 +84,9 @@ function makeCtx(overrides: Partial<RouteContext> = {}): RouteContext {
 }
 
 function parseJson(response: YcResponse): any {
+  if (response.isBase64Encoded && response.headers?.["Content-Encoding"] === "gzip") {
+    return JSON.parse(gunzipSync(Buffer.from(response.body, "base64")).toString());
+  }
   return JSON.parse(response.body);
 }
 

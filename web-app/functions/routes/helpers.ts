@@ -1,12 +1,24 @@
+import { gzipSync } from "zlib";
 import type { YcEvent, YcResponse, RouteContext } from "./types.js";
 import { verifyToken } from "../shared/auth.js";
 import { insertAuditLog } from "../shared/ydb-repository.js";
 
+const GZIP_THRESHOLD = 1024; // compress responses > 1KB
+
 export function json(cors: Record<string, string>, data: unknown, status = 200): YcResponse {
+  const body = JSON.stringify(data);
+  if (body.length > GZIP_THRESHOLD) {
+    return {
+      statusCode: status,
+      headers: { ...cors, "Content-Type": "application/json", "Content-Encoding": "gzip" },
+      body: gzipSync(body).toString("base64"),
+      isBase64Encoded: true,
+    };
+  }
   return {
     statusCode: status,
     headers: { ...cors, "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body,
     isBase64Encoded: false,
   };
 }
@@ -14,7 +26,7 @@ export function json(cors: Record<string, string>, data: unknown, status = 200):
 export function binary(cors: Record<string, string>, data: Buffer, contentType: string): YcResponse {
   return {
     statusCode: 200,
-    headers: { ...cors, "Content-Type": contentType, "Cache-Control": "private, max-age=86400" },
+    headers: { ...cors, "Content-Type": contentType, "Cache-Control": "private, max-age=604800" },
     body: data.toString("base64"),
     isBase64Encoded: true,
   };

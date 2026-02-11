@@ -27,9 +27,7 @@ async function init(): Promise<DataRepository> {
   if (isYdbConfigured()) {
     try {
       console.log("YDB configured, connecting...");
-      await ensureTables();
-      await migrateFromCsv(CSV_PATH, FAV_PATH);
-      // Load data and users in parallel (both read from YDB independently)
+      // Optimistic path: skip ensureTables/migrateFromCsv (tables already exist in production)
       const [ydbData] = await Promise.all([
         loadAllFromYdb(),
         initUsers(),
@@ -38,9 +36,23 @@ async function init(): Promise<DataRepository> {
       useYdb = true;
       console.log(`Loaded ${repo.getPersonCount()} persons from YDB`);
     } catch (e: any) {
-      console.error("YDB init failed, falling back to CSV:", e.message);
-      repo = new DataRepository(CSV_PATH, FAV_PATH, MEDIA_PATH, INFO_PATH);
-      await initUsers();
+      // First deploy or schema change: create tables and migrate
+      console.warn("Optimistic load failed, running full init:", e.message);
+      try {
+        await ensureTables();
+        await migrateFromCsv(CSV_PATH, FAV_PATH);
+        const [ydbData] = await Promise.all([
+          loadAllFromYdb(),
+          initUsers(),
+        ]);
+        repo = DataRepository.fromData(ydbData.persons, ydbData.favorites, MEDIA_PATH, INFO_PATH);
+        useYdb = true;
+        console.log(`Loaded ${repo.getPersonCount()} persons from YDB (after full init)`);
+      } catch (e2: any) {
+        console.error("YDB init failed, falling back to CSV:", e2.message);
+        repo = new DataRepository(CSV_PATH, FAV_PATH, MEDIA_PATH, INFO_PATH);
+        await initUsers();
+      }
     }
   } else {
     repo = new DataRepository(CSV_PATH, FAV_PATH, MEDIA_PATH, INFO_PATH);
