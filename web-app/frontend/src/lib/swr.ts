@@ -26,10 +26,10 @@ export function useStats() {
   );
 }
 
-export function useEvents(days = 5, yesterday = true) {
+export function useEvents(days: number | null = 5, yesterday = true) {
   return useSWR<{ events: EventItem[]; count: number }>(
-    `events-${days}-${yesterday}`,
-    () => api.getEvents(days, yesterday),
+    days !== null ? `events-${days}-${yesterday}` : null,
+    () => api.getEvents(days!, yesterday),
     defaultConfig
   );
 }
@@ -71,6 +71,14 @@ export function useCheckFavorite(personId: number | null) {
     personId ? `fav-check-${personId}` : null,
     () => api.checkFavorite(personId!),
     defaultConfig
+  );
+}
+
+export function useBio(id: number | null, hasBio: boolean) {
+  return useSWR<{ text: string }>(
+    id && hasBio ? `bio-${id}` : null,
+    () => api.getBio(id!),
+    { ...defaultConfig, revalidateIfStale: false }
   );
 }
 

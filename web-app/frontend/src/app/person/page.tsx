@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { api, mediaUrl, PersonCard, PersonBrief } from "@/lib/api";
+import { api, mediaUrl, PersonBrief } from "@/lib/api";
+import { usePerson, useCheckFavorite, useBio } from "@/lib/swr";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { ShareButton } from "@/components/share-button";
@@ -31,29 +32,16 @@ function PersonContent() {
   const searchParams = useSearchParams();
   const { canEdit } = useAuth();
   const id = Number(searchParams.get("id")) || 1;
-  const [data, setData] = useState<PersonCard | null>(null);
-  const [bio, setBio] = useState<string | null>(null);
+  const { data, isLoading: loading } = usePerson(id);
+  const { data: favData, mutate: mutateFav } = useCheckFavorite(id);
+  const { data: bioData } = useBio(id, data?.hasBio ?? false);
+  const bio = bioData?.text ?? null;
+  const isFav = favData?.isFavorite ?? false;
   const [photoIndex, setPhotoIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [isFav, setIsFav] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
     setPhotoIndex(0);
-    setBio(null);
-    api
-      .getPerson(id)
-      .then((d) => {
-        setData(d);
-        if (d.hasBio) {
-          api.getBio(id).then((b) => setBio(b.text)).catch(() => {});
-        }
-      })
-      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
-      .finally(() => setLoading(false));
-
-    api.checkFavorite(id).then(d => setIsFav(d.isFavorite)).catch(() => {});
   }, [id]);
 
   const toggleFavorite = async () => {
@@ -61,18 +49,18 @@ function PersonContent() {
     try {
       if (wasFav) {
         await api.removeFavorite(id);
-        setIsFav(false);
+        mutateFav({ isFavorite: false }, false);
         toast.success("Удалено из избранного", {
           action: {
             label: "Отменить",
             onClick: async () => {
-              try { await api.addFavorite(id); setIsFav(true); } catch {}
+              try { await api.addFavorite(id); mutateFav({ isFavorite: true }, false); } catch {}
             },
           },
         });
       } else {
         await api.addFavorite(id);
-        setIsFav(true);
+        mutateFav({ isFavorite: true }, false);
         toast.success("Добавлено в избранное");
       }
     } catch (e: any) { toast.error(e.message || "Не удалось обновить избранное"); }

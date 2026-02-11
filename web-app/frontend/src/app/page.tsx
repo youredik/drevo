@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -18,8 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedItem } from "@/components/animated-list";
-import { api, mediaUrl, EventItem } from "@/lib/api";
-import { toast } from "sonner";
+import { mediaUrl } from "@/lib/api";
+import { useInfo, useEvents } from "@/lib/swr";
 
 const quickActions = [
   { href: "/tree", label: "Древо поколений", icon: GitFork, color: "text-primary" },
@@ -31,19 +31,12 @@ const quickActions = [
 export default function HomePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [personCount, setPersonCount] = useState<number | null>(null);
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: infoData, isLoading: infoLoading } = useInfo();
+  const { data: eventsData, isLoading: eventsLoading } = useEvents(3, true);
 
-  useEffect(() => {
-    Promise.all([api.getInfo(), api.getEvents(3, true)])
-      .then(([info, eventsData]) => {
-        setPersonCount(info.personCount);
-        setEvents(eventsData.events.slice(0, 6));
-      })
-      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
-      .finally(() => setLoading(false));
-  }, []);
+  const loading = infoLoading || eventsLoading;
+  const personCount = infoData?.personCount ?? null;
+  const events = (eventsData?.events ?? []).slice(0, 6);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

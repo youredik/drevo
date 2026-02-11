@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { api, mediaUrl, EventItem } from "@/lib/api";
-import { toast } from "sonner";
+import { mediaUrl, EventItem } from "@/lib/api";
+import { useEvents } from "@/lib/swr";
 import { AnimatedItem } from "@/components/animated-list";
 
 const MONTH_NAMES = [
@@ -31,32 +31,17 @@ function getCalendarDays(year: number, month: number) {
 }
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(7);
 
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [allEvents, setAllEvents] = useState<EventItem[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    api
-      .getEvents(days, true)
-      .then((data) => setEvents(data.events))
-      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
-      .finally(() => setLoading(false));
-  }, [days]);
+  const { data: listData, isLoading: loading } = useEvents(days, true);
+  const { data: calendarData } = useEvents(viewMode === "calendar" ? 365 : null, false);
 
-  useEffect(() => {
-    if (viewMode === "calendar" && allEvents.length === 0) {
-      api
-        .getEvents(365, false)
-        .then((data) => setAllEvents(data.events))
-        .catch((e) => toast.error(e.message || "Ошибка загрузки"));
-    }
-  }, [viewMode]);
+  const events = listData?.events ?? [];
+  const allEvents = calendarData?.events ?? [];
 
   // Reset selected day when changing month
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Search as SearchIcon, Clock, X } from "lucide-react";
@@ -9,8 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { api, mediaUrl, SearchResult } from "@/lib/api";
-import { toast } from "sonner";
+import { SearchResult } from "@/lib/api";
+import { useSearch } from "@/lib/swr";
 import { AnimatedItem } from "@/components/animated-list";
 
 const RECENT_SEARCHES_KEY = "drevo_recent_searches";
@@ -50,49 +50,31 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [sexFilter, setSexFilter] = useState<"all" | "male" | "female">("all");
   const [aliveFilter, setAliveFilter] = useState<"all" | "alive" | "dead">("all");
   const [focused, setFocused] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { data: searchData, isLoading: loading } = useSearch(debouncedQuery);
+  const results: SearchResult[] = searchData?.results ?? [];
+  const searched = debouncedQuery.trim().length >= 2 && !loading;
+
   useEffect(() => {
     setRecentSearches(loadRecentSearches());
   }, []);
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await api.search(q.trim());
-      setResults(data.results);
-      setSearched(true);
-      const updated = saveRecentSearch(q.trim());
-      setRecentSearches(updated);
-    } catch (e: any) {
-      toast.error(e.message || "Ошибка поиска");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (initialQuery) doSearch(initialQuery);
-  }, [initialQuery, doSearch]);
-
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (query.trim().length >= 2) doSearch(query);
+      setDebouncedQuery(query);
+      if (query.trim().length >= 2) {
+        saveRecentSearch(query.trim());
+        setRecentSearches(loadRecentSearches());
+      }
     }, 300);
     return () => clearTimeout(timer);
-  }, [query, doSearch]);
+  }, [query]);
 
   const matchFieldLabel = (field: string) => {
     const labels: Record<string, string> = {
@@ -118,7 +100,7 @@ function SearchContent() {
 
   const handleRecentClick = (recent: string) => {
     setQuery(recent);
-    doSearch(recent);
+    setDebouncedQuery(recent);
     inputRef.current?.focus();
   };
 

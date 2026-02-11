@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, createReadStream } from "fs";
 import mime from "mime-types";
 
 import { DataRepository } from "./shared/data-repository.js";
@@ -70,6 +70,7 @@ app.get("/api/persons/:id", (req, res) => {
   const id = parseInt(req.params.id);
   const card = repo.getPersonCard(id);
   if (!card) { res.status(404).json({ error: "Человек не найден" }); return; }
+  res.setHeader("Cache-Control", "public, max-age=120");
   res.json(card);
 });
 
@@ -83,13 +84,16 @@ app.get("/api/persons", (req, res) => {
 
 app.get("/api/search", (req, res) => {
   const q = (req.query.q as string) || "";
-  res.json({ results: repo.search(q), count: repo.search(q).length });
+  const results = repo.search(q);
+  res.setHeader("Cache-Control", "public, max-age=30");
+  res.json({ results, count: results.length });
 });
 
 app.get("/api/events", (req, res) => {
   const days = parseInt(req.query.days as string) || 5;
   const yesterday = req.query.yesterday !== "false";
   const events = repo.getEvents(days, yesterday);
+  res.setHeader("Cache-Control", "public, max-age=60");
   res.json({ events, count: events.length });
 });
 
@@ -98,6 +102,7 @@ app.get("/api/tree/:id", (req, res) => {
   const type = (req.query.type as string) || "ancestors";
   const tree = type === "descendants" ? repo.getDescendantTree(id) : repo.getAncestorTree(id);
   if (!tree) { res.status(404).json({ error: "Человек не найден" }); return; }
+  res.setHeader("Cache-Control", "public, max-age=120");
   res.json(tree);
 });
 
@@ -117,7 +122,10 @@ app.get("/api/family/:id", (req, res) => {
   res.json({ members });
 });
 
-app.get("/api/stats", (_req, res) => { res.json(repo.getStats()); });
+app.get("/api/stats", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.json(repo.getStats());
+});
 
 app.get("/api/bio/:id", (req, res) => {
   const id = parseInt(req.params.id);
@@ -163,10 +171,11 @@ app.get("/api/media/:filename", (req, res) => {
   if (!existsSync(filePath)) { res.status(404).json({ error: "Файл не найден" }); return; }
   res.setHeader("Content-Type", mime.lookup(filename) || "application/octet-stream");
   res.setHeader("Cache-Control", "public, max-age=86400");
-  res.send(readFileSync(filePath));
+  createReadStream(filePath).pipe(res);
 });
 
 app.get("/api/info", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300");
   res.json({
     appName: "Drevo",
     personCount: repo.getPersonCount(),
