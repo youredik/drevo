@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   TreePine,
   Search,
@@ -33,7 +33,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
-import { api } from "@/lib/api";
+import { useEvents } from "@/lib/swr";
 
 const navItems = [
   { href: "/", label: "Главная", icon: TreePine },
@@ -49,13 +49,8 @@ export function Navbar() {
   const { user, logout, isAdmin, canEdit } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
-  const [todayCount, setTodayCount] = useState(0);
-
-  useEffect(() => {
-    api.getEvents(0, false)
-      .then((data) => setTodayCount(data.events.filter((e) => e.daysUntil === 0).length))
-      .catch(() => {});
-  }, []);
+  const { data: eventsData } = useEvents(3, true);
+  const todayCount = eventsData?.events.filter((e) => e.daysUntil === 0).length ?? 0;
 
   // Hide navbar on login page
   if (pathname === "/login") return null;

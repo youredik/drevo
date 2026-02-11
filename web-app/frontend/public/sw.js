@@ -1,5 +1,5 @@
 const CACHE_NAME = "drevo-v3";
-const API_CACHE_NAME = "drevo-api-v2";
+const API_CACHE_NAME = "drevo-api-v3";
 const MEDIA_CACHE_NAME = "drevo-media-v1";
 const STATIC_ASSETS = ["/", "/search", "/events", "/tree", "/favorites", "/stats"];
 const MEDIA_CACHE_MAX = 200;
@@ -63,24 +63,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // API requests: stale-while-revalidate (skip auth & admin)
+  // API requests: network-first with offline fallback (skip auth & admin)
+  // SWR on the client already handles staleness/revalidation,
+  // so the SW only caches for offline support — no background refetch needed.
   if (url.pathname.startsWith("/api/")) {
     if (url.pathname.startsWith("/api/auth/") || url.pathname.startsWith("/api/admin/")) return;
 
     event.respondWith(
       caches.open(API_CACHE_NAME).then((cache) =>
-        cache.match(request).then((cached) => {
-          const fetchPromise = fetch(request)
-            .then((response) => {
-              if (response.ok) {
-                cache.put(request, response.clone());
-              }
-              return response;
-            })
-            .catch(() => cached);
-
-          return cached || fetchPromise;
-        })
+        fetch(request)
+          .then((response) => {
+            if (response.ok) {
+              cache.put(request, response.clone());
+            }
+            return response;
+          })
+          .catch(() => cache.match(request))
       )
     );
     return;
