@@ -136,7 +136,7 @@ jobs:
             --function-name=${{ env.FUNCTION_NAME }} \
             --runtime=nodejs22 \
             --entrypoint=handler.handler \
-            --memory=256m \
+            --memory=512m \
             --execution-timeout=60s \
             --package-bucket-name=${{ env.MEDIA_BUCKET }} \
             --package-object-name=deploy/api.zip \
