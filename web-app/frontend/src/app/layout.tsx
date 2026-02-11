@@ -18,6 +18,13 @@ export const metadata: Metadata = {
   title: "Drevo — Семейное древо",
   description: "Семейное генеалогическое приложение для просмотра, поиска и исследования родственных связей",
   manifest: "/manifest.json",
+  openGraph: {
+    title: "Drevo — Семейное древо",
+    description: "Семейное генеалогическое приложение для просмотра, поиска и исследования родственных связей",
+    type: "website",
+    locale: "ru_RU",
+    siteName: "Drevo",
+  },
 };
 
 export default function RootLayout({

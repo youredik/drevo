@@ -1,6 +1,8 @@
-const CACHE_NAME = "drevo-v2";
-const API_CACHE_NAME = "drevo-api-v1";
+const CACHE_NAME = "drevo-v3";
+const API_CACHE_NAME = "drevo-api-v2";
+const MEDIA_CACHE_NAME = "drevo-media-v1";
 const STATIC_ASSETS = ["/", "/search", "/events", "/tree", "/favorites", "/stats"];
+const MEDIA_CACHE_MAX = 200;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -10,11 +12,12 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  const keepCaches = [CACHE_NAME, API_CACHE_NAME, MEDIA_CACHE_NAME];
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(
         names
-          .filter((n) => n !== CACHE_NAME && n !== API_CACHE_NAME)
+          .filter((n) => !keepCaches.includes(n))
           .map((n) => caches.delete(n))
       )
     )
@@ -22,14 +25,43 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Trim cache to max entries (LRU-style: delete oldest)
+async function trimCache(cacheName, maxItems) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length > maxItems) {
+    for (let i = 0; i < keys.length - maxItems; i++) {
+      await cache.delete(keys[i]);
+    }
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
 
-  // Skip media requests
-  if (url.pathname.startsWith("/media/")) return;
+  // Media requests: cache-first with background update (photos)
+  if (url.pathname.startsWith("/api/media/")) {
+    event.respondWith(
+      caches.open(MEDIA_CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) => {
+          const fetchPromise = fetch(request)
+            .then((response) => {
+              if (response.ok) {
+                cache.put(request, response.clone());
+                trimCache(MEDIA_CACHE_NAME, MEDIA_CACHE_MAX);
+              }
+              return response;
+            })
+            .catch(() => cached);
+          return cached || fetchPromise;
+        })
+      )
+    );
+    return;
+  }
 
   // API requests: stale-while-revalidate (skip auth & admin)
   if (url.pathname.startsWith("/api/")) {
@@ -47,7 +79,6 @@ self.addEventListener("fetch", (event) => {
             })
             .catch(() => cached);
 
-          // Return cached immediately, update in background
           return cached || fetchPromise;
         })
       )
@@ -66,7 +97,15 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => cached);
+        .catch(() => {
+          // Offline fallback: return cached version or offline page
+          if (cached) return cached;
+          // For navigation requests, try returning the cached index
+          if (request.mode === "navigate") {
+            return caches.match("/");
+          }
+          return cached;
+        });
       return cached || fetchPromise;
     })
   );

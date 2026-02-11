@@ -44,6 +44,14 @@ function PersonContent() {
     setPhotoIndex(0);
   }, [id]);
 
+  // Dynamic page title
+  useEffect(() => {
+    if (data) {
+      document.title = `${data.person.lastName} ${data.person.firstName} — Drevo`;
+    }
+    return () => { document.title = "Drevo — Семейное древо"; };
+  }, [data]);
+
   const toggleFavorite = async () => {
     const wasFav = isFav;
     try {

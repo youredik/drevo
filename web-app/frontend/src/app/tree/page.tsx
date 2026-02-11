@@ -17,6 +17,10 @@ import {
   Download,
   List,
   Network,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -288,6 +292,10 @@ function SvgEdges({
 
 // ─── Visual graph view ───────────────────────────────────
 
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 3;
+const ZOOM_STEP = 0.15;
+
 function GraphView({
   tree,
   treeType,
@@ -299,6 +307,12 @@ function GraphView({
 }) {
   const isAncestors = treeType === "ancestors";
   const direction = isAncestors ? "horizontal" : "vertical";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
+  const zoomRef = useRef(1);
+
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
   const { positioned, canvasWidth, canvasHeight, edges } = useMemo(() => {
     let positioned: PositionedNode;
@@ -319,25 +333,167 @@ function GraphView({
     return { positioned, canvasWidth, canvasHeight, edges };
   }, [tree, isAncestors, direction]);
 
+  // Scroll to center root node on load / tree change / fullscreen toggle
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    requestAnimationFrame(() => {
+      const rootCenterX = (positioned.x + NODE_W / 2) * zoomRef.current;
+      const rootCenterY = (positioned.y + NODE_H / 2) * zoomRef.current;
+      container.scrollLeft = rootCenterX - container.clientWidth / 2;
+      container.scrollTop = rootCenterY - container.clientHeight / 2;
+    });
+  }, [positioned, fullscreen]);
+
+  // Ctrl/Cmd + wheel zoom (keeps point under cursor stable)
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const handler = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const oldZoom = zoomRef.current;
+        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, +(oldZoom + delta).toFixed(2)));
+        if (newZoom === oldZoom) return;
+
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const canvasX = (container.scrollLeft + mouseX) / oldZoom;
+        const canvasY = (container.scrollTop + mouseY) / oldZoom;
+
+        zoomRef.current = newZoom;
+        setZoom(newZoom);
+
+        requestAnimationFrame(() => {
+          container.scrollLeft = canvasX * newZoom - mouseX;
+          container.scrollTop = canvasY * newZoom - mouseY;
+        });
+      }
+    };
+    container.addEventListener("wheel", handler, { passive: false });
+    return () => container.removeEventListener("wheel", handler);
+  }, []);
+
+  // Escape to exit fullscreen
+  useEffect(() => {
+    if (!fullscreen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [fullscreen]);
+
+  // Lock body scroll in fullscreen
+  useEffect(() => {
+    if (fullscreen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [fullscreen]);
+
+  const changeZoom = useCallback((delta: number) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const oldZoom = zoomRef.current;
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, +(oldZoom + delta).toFixed(2)));
+    if (newZoom === oldZoom) return;
+
+    const centerX = container.scrollLeft + container.clientWidth / 2;
+    const centerY = container.scrollTop + container.clientHeight / 2;
+    const canvasX = centerX / oldZoom;
+    const canvasY = centerY / oldZoom;
+
+    zoomRef.current = newZoom;
+    setZoom(newZoom);
+
+    requestAnimationFrame(() => {
+      container.scrollLeft = canvasX * newZoom - container.clientWidth / 2;
+      container.scrollTop = canvasY * newZoom - container.clientHeight / 2;
+    });
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    zoomRef.current = 1;
+    setZoom(1);
+    requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const rootCenterX = positioned.x + NODE_W / 2;
+      const rootCenterY = positioned.y + NODE_H / 2;
+      container.scrollLeft = rootCenterX - container.clientWidth / 2;
+      container.scrollTop = rootCenterY - container.clientHeight / 2;
+    });
+  }, [positioned]);
+
+  const scaledW = canvasWidth * zoom;
+  const scaledH = canvasHeight * zoom;
+
   return (
-    <div className="border rounded-xl overflow-auto max-h-[70vh] bg-muted/20">
+    <div className={fullscreen ? "fixed inset-0 z-50 bg-background flex flex-col" : "relative"}>
       <div
-        ref={treeRef}
-        className="relative"
-        style={{
-          width: canvasWidth,
-          height: canvasHeight,
-          minWidth: "100%",
-          minHeight: 300,
-        }}
+        ref={scrollRef}
+        className={`overflow-auto bg-muted/20 ${
+          fullscreen ? "flex-1" : "border rounded-xl max-h-[70vh]"
+        }`}
       >
-        <SvgEdges
-          edges={edges}
-          direction={direction}
-          width={canvasWidth}
-          height={canvasHeight}
-        />
-        <GraphNodeCard positioned={positioned} />
+        <div style={{ width: scaledW, height: scaledH, minWidth: "100%", minHeight: fullscreen ? "100%" : 300 }}>
+          <div
+            ref={treeRef}
+            className="relative"
+            style={{
+              width: canvasWidth,
+              height: canvasHeight,
+              transform: `scale(${zoom})`,
+              transformOrigin: "0 0",
+            }}
+          >
+            <SvgEdges
+              edges={edges}
+              direction={direction}
+              width={canvasWidth}
+              height={canvasHeight}
+            />
+            <GraphNodeCard positioned={positioned} />
+          </div>
+        </div>
+      </div>
+
+      {/* Zoom & fullscreen controls */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-lg border bg-card/90 backdrop-blur-sm p-1 shadow-lg z-10">
+        <button
+          onClick={() => changeZoom(-ZOOM_STEP)}
+          className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+          title="Уменьшить"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <button
+          onClick={resetZoom}
+          className="h-8 min-w-[3rem] flex items-center justify-center rounded-md hover:bg-muted transition-colors text-xs font-medium"
+          title="Сбросить масштаб"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          onClick={() => changeZoom(ZOOM_STEP)}
+          className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+          title="Увеличить"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        <div className="w-px h-5 bg-border mx-0.5" />
+        <button
+          onClick={() => setFullscreen((f) => !f)}
+          className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+          title={fullscreen ? "Свернуть" : "На весь экран"}
+        >
+          {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
       </div>
     </div>
   );
