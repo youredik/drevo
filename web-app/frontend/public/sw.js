@@ -36,6 +36,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
+  // RSC flight data (.txt) — let Next.js handle directly, no SW caching
+  if (url.pathname.endsWith(".txt")) return;
+
   // Media requests: cache-first, auth via ?token= in original URL
   // (Authorization header injection doesn't work — <img> uses no-cors mode
   //  which silently strips non-simple headers)

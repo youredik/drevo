@@ -167,7 +167,7 @@ jobs:
               png)  ct="image/png" ;;
               jpg|jpeg) ct="image/jpeg" ;;
               ico)  ct="image/x-icon" ;;
-              txt)  ct="text/plain" ;;
+              txt)  ct="text/x-component" ;;
               woff) ct="font/woff" ;;
               woff2) ct="font/woff2" ;;
               map)  ct="application/json" ;;
