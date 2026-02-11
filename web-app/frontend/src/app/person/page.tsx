@@ -294,7 +294,7 @@ function PersonContent() {
                           <Copy className="h-3 w-3" /> Копировать
                         </Button>
                       </div>
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/50 rounded-xl p-4">{bio}</div>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/50 glass-subtle rounded-xl p-4">{bio}</div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-muted-foreground py-4">
@@ -392,7 +392,7 @@ function PersonMiniCard({ person, relation }: { person: PersonBrief; relation: s
   const isAlive = !person.deathDay || person.deathDay.trim() === "";
   return (
     <Link href={`/person?id=${person.id}`} prefetch={false}>
-      <Card className="hover:shadow-md transition-shadow cursor-pointer card-press">
+      <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
         <CardContent className="flex items-center gap-3 py-3">
           <img
             src={mediaUrl(person.photo)}

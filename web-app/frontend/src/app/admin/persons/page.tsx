@@ -110,7 +110,7 @@ export default function AdminPersonsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">
-      <Card>
+      <Card className="glass">
         <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
           <CardTitle>Управление людьми</CardTitle>
           <Button className="gap-2" onClick={() => setCreateOpen(true)}>

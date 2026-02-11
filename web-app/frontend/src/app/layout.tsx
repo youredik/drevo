@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="ru" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#2d7a4f" />
+        <meta name="theme-color" content="#3730a3" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Drevo" />
         <link rel="apple-touch-icon" href="/icon-192.png" />

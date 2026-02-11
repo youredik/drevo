@@ -328,7 +328,7 @@ function PersonEditor() {
 
         {/* Info Tab */}
         <TabsContent value="info" className="mt-4">
-          <Card>
+          <Card className="glass">
             <CardContent className="pt-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -404,7 +404,7 @@ function PersonEditor() {
         {/* Relations Tab */}
         <TabsContent value="relations" className="mt-4 space-y-4">
           {/* Parents */}
-          <Card>
+          <Card className="glass">
             <CardHeader><CardTitle className="text-base">Родители</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div>
@@ -424,7 +424,7 @@ function PersonEditor() {
           </Card>
 
           {/* Spouses */}
-          <Card>
+          <Card className="glass">
             <CardHeader><CardTitle className="text-base">Супруги</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {spouses.map((s) => (
@@ -443,7 +443,7 @@ function PersonEditor() {
           </Card>
 
           {/* Children */}
-          <Card>
+          <Card className="glass">
             <CardHeader><CardTitle className="text-base">Дети</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {children.map((c) => (
@@ -464,7 +464,7 @@ function PersonEditor() {
 
         {/* Photos Tab */}
         <TabsContent value="photos" className="mt-4">
-          <Card>
+          <Card className="glass">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Фотографии ({photos.length})</CardTitle>
               <Button size="sm" className="gap-2" disabled={uploading} onClick={() => fileRef.current?.click()}>
@@ -499,7 +499,7 @@ function PersonEditor() {
 
         {/* Bio Tab */}
         <TabsContent value="bio" className="mt-4">
-          <Card>
+          <Card className="glass">
             <CardHeader><CardTitle className="text-base">Биография</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <Textarea

@@ -89,7 +89,7 @@ export default function AuditPage() {
           ))}
         </div>
       ) : logs.length === 0 ? (
-        <Card>
+        <Card className="glass">
           <CardContent className="py-16 text-center text-muted-foreground">
             <Shield className="h-16 w-16 mx-auto mb-4 opacity-20" />
             <p className="text-lg font-medium mb-1">Журнал пуст</p>
@@ -99,7 +99,7 @@ export default function AuditPage() {
       ) : (
         <div className="space-y-2">
           {logs.map((log) => (
-            <Card key={log.id}>
+            <Card key={log.id} className="glass">
               <CardContent className="flex items-center gap-4 py-3">
                 <div className="shrink-0">
                   <Badge variant="secondary" className={actionColors[log.action] || ""}>

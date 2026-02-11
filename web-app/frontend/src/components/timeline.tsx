@@ -13,9 +13,9 @@ interface TimelineProps {
 }
 
 const typeColors: Record<string, string> = {
-  birth: "bg-emerald-500",
+  birth: "bg-primary",
   death: "bg-red-500",
-  marriage: "bg-blue-500",
+  marriage: "bg-accent",
   info: "bg-muted-foreground",
 };
 

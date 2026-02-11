@@ -44,7 +44,7 @@ export default function StatsPage() {
     { label: "Всего людей", value: stats.totalPersons, icon: Users, color: "text-primary" },
     { label: "Мужчин", value: stats.maleCount, icon: Users, color: "text-blue-500" },
     { label: "Женщин", value: stats.femaleCount, icon: Users, color: "text-pink-500" },
-    { label: "Живых", value: stats.aliveCount, icon: Heart, color: "text-emerald-500" },
+    { label: "Живых", value: stats.aliveCount, icon: Heart, color: "text-primary" },
   ];
 
   const ageLabels: Record<string, string> = {
@@ -67,7 +67,7 @@ export default function StatsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {summaryCards.map((card, i) => (
           <AnimatedItem key={card.label} index={i}>
-            <Card>
+            <Card className="glass glass-hover">
               <CardContent className="py-4 text-center">
                 <card.icon className={`h-6 w-6 mx-auto mb-2 ${card.color}`} />
                 <p className="text-2xl font-bold">
@@ -86,7 +86,7 @@ export default function StatsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
       >
-        <Card className="mb-8">
+        <Card className="glass glass-hover mb-8">
           <CardHeader>
             <CardTitle className="text-lg">Распределение по возрасту</CardTitle>
           </CardHeader>
@@ -124,7 +124,7 @@ export default function StatsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.4 }}
         >
-          <Card>
+          <Card className="glass glass-hover">
             <CardHeader>
               <CardTitle className="text-lg">Долгожители (90+ лет)</CardTitle>
             </CardHeader>

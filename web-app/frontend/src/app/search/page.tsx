@@ -133,7 +133,7 @@ function SearchContent() {
     <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
       <h1 className="text-2xl font-bold mb-6">Поиск</h1>
 
-      <div className="relative mb-6">
+      <div className="relative mb-6 glass rounded-xl p-1">
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           ref={inputRef}
@@ -236,7 +236,7 @@ function SearchContent() {
             return (
               <AnimatedItem key={r.id} index={i}>
                 <Link href={`/person?id=${r.id}`} prefetch={false}>
-                  <Card className="card-press hover:shadow-md transition-shadow cursor-pointer">
+                  <Card className="glass glass-hover card-press hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="flex items-center gap-4 py-3">
                       <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${
                         isAlive ? "bg-primary" : "bg-destructive"

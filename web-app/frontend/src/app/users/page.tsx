@@ -124,7 +124,7 @@ export default function UsersPage() {
         </div>
       )}
 
-      <Card>
+      <Card className="glass">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Пользователи</CardTitle>
           <Button className="gap-2" onClick={() => { setForm({ login: "", password: "", role: "viewer" }); setCreateOpen(true); }}>

@@ -540,7 +540,7 @@ function TreeContent() {
           ))}
         </div>
       ) : !tree ? (
-        <Card>
+        <Card className="glass">
           <CardContent className="py-16 text-center text-muted-foreground">
             <GitFork className="h-16 w-16 mx-auto mb-4 opacity-20" />
             <p className="text-lg font-medium mb-1">Человек не найден</p>

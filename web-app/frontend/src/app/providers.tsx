@@ -10,6 +10,7 @@ import { ScrollToTop } from "@/components/scroll-to-top";
 import { NavProgress } from "@/components/nav-progress";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { InstallPrompt } from "@/components/install-prompt";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -23,6 +24,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <Breadcrumbs />
           {children}
           <ScrollToTop />
+          <InstallPrompt />
           <Toaster position="top-right" richColors closeButton duration={4000} />
         </TooltipProvider>
       </AuthProvider>

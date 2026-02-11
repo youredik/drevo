@@ -63,9 +63,9 @@ export default function HomePage() {
 
   const eventTypeColor = (type: string) => {
     switch (type) {
-      case "birthday": return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+      case "birthday": return "bg-primary/10 text-primary";
       case "memorial": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-      case "wedding": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+      case "wedding": return "bg-accent/10 text-accent";
       default: return "";
     }
   };
@@ -87,7 +87,7 @@ export default function HomePage() {
           className="max-w-2xl mx-auto"
         >
           <div className="flex justify-center mb-6">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <div className="h-16 w-16 rounded-2xl bg-primary/10 glass-subtle flex items-center justify-center">
               <TreePine className="h-9 w-9 text-primary" />
             </div>
           </div>
@@ -124,9 +124,9 @@ export default function HomePage() {
         {quickActions.map((action, i) => (
           <AnimatedItem key={action.href} index={i}>
             <Link href={action.href} prefetch={false}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full card-press">
+              <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer group h-full card-press">
                 <CardContent className="flex flex-col items-center text-center gap-3 py-6">
-                  <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <div className="h-12 w-12 rounded-xl bg-muted glass-subtle flex items-center justify-center group-hover:scale-110 transition-transform">
                     <action.icon className={`h-6 w-6 ${action.color}`} />
                   </div>
                   <span className="text-sm font-medium">{action.label}</span>
@@ -176,7 +176,7 @@ export default function HomePage() {
             {events.map((event, i) => (
               <AnimatedItem key={`${event.id}-${event.eventType}-${i}`} index={i}>
                 <Link href={`/person?id=${event.id}`} prefetch={false}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer card-press">
+                  <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
                     <CardContent className="flex items-center gap-4 py-4">
                       <img
                         src={mediaUrl(event.photo)}
@@ -201,7 +201,7 @@ export default function HomePage() {
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {event.daysUntil === 0 && (
-                          <span className="h-2 w-2 rounded-full bg-emerald-500 pulse-dot" />
+                          <span className="h-2 w-2 rounded-full bg-primary pulse-dot" />
                         )}
                         <Badge variant="outline">
                           {daysLabel(event.daysUntil)}

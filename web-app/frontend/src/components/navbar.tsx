@@ -63,7 +63,7 @@ export function Navbar() {
   return (
     <>
       {/* Desktop navbar */}
-      <header className="sticky top-0 z-50 hidden md:block border-b bg-card/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 hidden md:block glass-strong navbar-glow">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-6">
           <Link href="/" className="flex items-center gap-2.5">
             <TreePine className="h-7 w-7 text-primary" />
@@ -167,7 +167,7 @@ export function Navbar() {
       </header>
 
       {/* Mobile bottom nav */}
-      <nav aria-label="Мобильная навигация" className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md">
+      <nav aria-label="Мобильная навигация" className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong" style={{ borderTop: '1px solid var(--glass-border)' }}>
         <div className="flex items-center justify-around h-16">
           {navItems.slice(0, 5).map((item) => {
             const isActive = pathname === item.href;
@@ -267,7 +267,7 @@ export function Navbar() {
       </nav>
 
       {/* Mobile top bar */}
-      <header className="md:hidden sticky top-0 z-40 border-b bg-card/80 backdrop-blur-md">
+      <header className="md:hidden sticky top-0 z-40 glass-strong navbar-glow">
         <div className="flex items-center justify-between h-14 px-4">
           <Link href="/" className="flex items-center gap-2">
             <TreePine className="h-6 w-6 text-primary" />

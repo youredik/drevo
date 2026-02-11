@@ -74,9 +74,9 @@ export default function EventsPage() {
 
   const eventTypeColor = (type: string) => {
     switch (type) {
-      case "birthday": return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+      case "birthday": return "bg-primary/10 text-primary";
       case "memorial": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-      case "wedding": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+      case "wedding": return "bg-accent/10 text-accent";
       default: return "";
     }
   };
@@ -133,7 +133,7 @@ export default function EventsPage() {
   const renderEventCard = (event: EventItem, i: number) => (
     <AnimatedItem key={`${event.id}-${event.eventType}-${i}`} index={i}>
       <Link href={`/person?id=${event.id}`} prefetch={false}>
-        <Card className="hover:shadow-md transition-shadow cursor-pointer card-press">
+        <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
           <CardContent className="flex items-center gap-4 py-3">
             <img
               src={mediaUrl(event.photo)}
@@ -158,7 +158,7 @@ export default function EventsPage() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {event.daysUntil === 0 && (
-                <span className="h-2 w-2 rounded-full bg-emerald-500 pulse-dot" />
+                <span className="h-2 w-2 rounded-full bg-primary pulse-dot" />
               )}
               <span className="text-sm text-muted-foreground">
                 {event.eventDate}
@@ -305,10 +305,10 @@ export default function EventsPage() {
                         key={i}
                         className={`h-1.5 w-1.5 rounded-full ${
                           ev.eventType === "birthday"
-                            ? "bg-emerald-500"
+                            ? "bg-primary"
                             : ev.eventType === "memorial"
                               ? "bg-red-500"
-                              : "bg-blue-500"
+                              : "bg-accent"
                         }`}
                       />
                     ))}
@@ -321,7 +321,7 @@ export default function EventsPage() {
           {/* Legend */}
           <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-emerald-500" />
+              <div className="h-2 w-2 rounded-full bg-primary" />
               <span>День рождения</span>
             </div>
             <div className="flex items-center gap-1">
@@ -329,7 +329,7 @@ export default function EventsPage() {
               <span>День памяти</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-blue-500" />
+              <div className="h-2 w-2 rounded-full bg-accent" />
               <span>Годовщина свадьбы</span>
             </div>
           </div>

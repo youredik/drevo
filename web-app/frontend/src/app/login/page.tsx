@@ -36,8 +36,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16">
-      <Card>
+    <div className="max-w-md mx-auto px-4 py-16 gradient-dramatic">
+      <Card className="glass">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Вход в систему</CardTitle>
         </CardHeader>

@@ -61,7 +61,7 @@ function KinshipContent() {
     <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
       <h1 className="text-2xl font-bold mb-6">Проверка родства</h1>
 
-      <Card className="mb-6">
+      <Card className="glass glass-hover mb-6">
         <CardContent className="py-4">
           <form onSubmit={handleCheck} className="flex flex-col sm:flex-row gap-3">
             <Input
@@ -107,7 +107,7 @@ function KinshipContent() {
       {!loading && result && (
         <div className="space-y-4">
           {/* Relationship */}
-          <Card>
+          <Card className="glass glass-hover">
             <CardContent className="py-6 text-center">
               <Badge className="text-lg px-4 py-2 mb-4">{result.relationship}</Badge>
               <div className="flex items-center justify-center gap-6">
@@ -120,7 +120,7 @@ function KinshipContent() {
 
           {/* Common ancestor */}
           {result.commonAncestor && (
-            <Card>
+            <Card className="glass glass-hover">
               <CardHeader>
                 <CardTitle className="text-base">Общий предок</CardTitle>
               </CardHeader>
@@ -134,7 +134,7 @@ function KinshipContent() {
           {(result.pathFromPerson1.length > 0 || result.pathFromPerson2.length > 0) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {result.pathFromPerson1.length > 0 && (
-                <Card>
+                <Card className="glass glass-hover">
                   <CardHeader>
                     <CardTitle className="text-base">
                       Линия: {result.person1.lastName} {result.person1.firstName}
@@ -151,7 +151,7 @@ function KinshipContent() {
                 </Card>
               )}
               {result.pathFromPerson2.length > 0 && (
-                <Card>
+                <Card className="glass glass-hover">
                   <CardHeader>
                     <CardTitle className="text-base">
                       Линия: {result.person2.lastName} {result.person2.firstName}

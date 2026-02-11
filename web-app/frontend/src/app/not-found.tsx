@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center px-4">
+    <div className="min-h-[60vh] flex items-center justify-center px-4 gradient-dramatic">
       <div className="text-center max-w-md">
         <div className="flex justify-center mb-6">
           <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center">
             <TreePine className="h-10 w-10 text-muted-foreground" />
           </div>
         </div>
-        <h1 className="text-6xl font-bold text-muted-foreground/30 mb-2">404</h1>
+        <h1 className="text-6xl font-bold text-gradient mb-2">404</h1>
         <h2 className="text-xl font-semibold mb-2">Страница не найдена</h2>
         <p className="text-muted-foreground mb-8">
           Возможно, эта ветвь ещё не выросла в нашем древе

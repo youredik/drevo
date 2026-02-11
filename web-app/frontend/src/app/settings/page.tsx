@@ -151,7 +151,7 @@ export default function SettingsPage() {
       )}
 
       {/* Config */}
-      <Card>
+      <Card className="glass">
         <CardHeader><CardTitle>Настройки приложения</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -172,7 +172,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Import/Export */}
-      <Card>
+      <Card className="glass">
         <CardHeader><CardTitle>Импорт / Экспорт</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
@@ -193,7 +193,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Validation */}
-      <Card>
+      <Card className="glass">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Валидация данных</CardTitle>
           <Button variant="outline" onClick={handleValidate} disabled={validating} className="gap-2">

@@ -53,7 +53,7 @@ export default function FavoritesPage() {
           ))}
         </div>
       ) : favorites.length === 0 ? (
-        <Card>
+        <Card className="glass glass-hover">
           <CardContent className="py-16 text-center text-muted-foreground">
             <Heart className="h-16 w-16 mx-auto mb-4 opacity-20" />
             <p className="text-lg font-medium mb-1">Нет избранных</p>
@@ -71,7 +71,7 @@ export default function FavoritesPage() {
             const photo = card.photos?.[0] || (p.sex === 1 ? "m.jpg" : "w.jpg");
             return (
               <AnimatedItem key={p.id} index={i}>
-                <Card className="group relative overflow-hidden card-press">
+                <Card className="glass glass-hover group relative overflow-hidden card-press">
                   <Button
                     variant="ghost"
                     size="icon"
