@@ -8,7 +8,7 @@ import {
   useMemo,
   Suspense,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   GitFork,
@@ -211,13 +211,16 @@ function getBounds(positioned: PositionedNode): {
 
 function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
   const { node, x, y } = positioned;
+  const router = useRouter();
 
   return (
     <>
-      <Link
-        href={`/person?id=${node.id}`}
-        prefetch={false}
-        className="absolute flex flex-col items-center gap-1 group"
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={() => router.push(`/person?id=${node.id}`)}
+        onKeyDown={(e) => { if (e.key === "Enter") router.push(`/person?id=${node.id}`); }}
+        className="absolute flex flex-col items-center gap-1 group cursor-pointer"
         style={{
           left: x,
           top: y,
@@ -239,7 +242,7 @@ function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
         <span className="text-[10px] text-muted-foreground leading-tight text-center max-w-[80px] truncate">
           {node.lastName}
         </span>
-      </Link>
+      </div>
       {positioned.children.map((child) => (
         <GraphNodeCard key={child.node.id} positioned={child} />
       ))}
