@@ -211,7 +211,7 @@ function PersonContent() {
               onDragEnd={handleSwipeEnd}
               className="w-full h-full"
             >
-              <img
+              <SafeImage
                 src={mediaUrl(photos[photoIndex])}
                 alt={`${person.lastName} ${person.firstName}`}
                 className="w-full h-full object-cover pointer-events-none"

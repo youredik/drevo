@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedItem } from "@/components/animated-list";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { api, mediaUrl, StatsData } from "@/lib/api";
+import { SafeImage } from "@/components/safe-image";
 
 export default function StatsPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -136,7 +137,7 @@ export default function StatsPage() {
                       href={`/person?id=${person.id}`}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors card-press"
                     >
-                      <img
+                      <SafeImage
                         src={mediaUrl(person.photo)}
                         alt=""
                         className="h-10 w-10 rounded-full object-cover bg-muted shrink-0"

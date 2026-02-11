@@ -32,6 +32,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { api, mediaUrl, PersonCard, PersonBrief } from "@/lib/api";
 import { PersonSearchSelect } from "@/components/person-search-select";
+import { SafeImage } from "@/components/safe-image";
 import { toast } from "sonner";
 
 function validateDate(value: string): boolean {
@@ -480,7 +481,7 @@ function PersonEditor() {
                   {photos.map((photo) => (
                     <div key={photo} className="relative group">
                       <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted">
-                        <img src={mediaUrl(photo)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <SafeImage src={mediaUrl(photo)} alt="" className="w-full h-full object-cover" loading="lazy" />
                       </div>
                       <button
                         className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"

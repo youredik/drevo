@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl } from "@/lib/api";
 import { PersonSearchSelect } from "@/components/person-search-select";
+import { SafeImage } from "@/components/safe-image";
 
 export default function KinshipPage() {
   return <Suspense><KinshipContent /></Suspense>;
@@ -181,7 +182,7 @@ function PersonChip({ person, small = false }: { person: any; small?: boolean })
       href={`/person?id=${person.id}`}
       className="flex items-center gap-2 hover:bg-muted rounded-lg px-2 py-1 transition-colors card-press"
     >
-      <img
+      <SafeImage
         src={mediaUrl(person.photo)}
         alt=""
         loading="lazy"
