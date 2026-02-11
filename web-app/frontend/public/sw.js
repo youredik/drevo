@@ -45,13 +45,17 @@ async function trimCache(cacheName, maxItems) {
   }
 }
 
-// Build an authenticated request: strip ?token= from URL, add Authorization header
+// Build an authenticated request: move ?token= from URL into Authorization header.
+// If authToken is available, use it and strip ?token= from URL.
+// If authToken is NOT available, keep the original request (with ?token= intact as fallback).
 function buildAuthRequest(request) {
+  if (!authToken) return request; // no SW token yet — pass through unchanged
+
   const url = new URL(request.url);
   url.searchParams.delete("token");
 
   const headers = new Headers(request.headers);
-  if (authToken && !headers.has("Authorization")) {
+  if (!headers.has("Authorization")) {
     headers.set("Authorization", "Bearer " + authToken);
   }
 

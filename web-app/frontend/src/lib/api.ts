@@ -218,11 +218,9 @@ async function requestText(path: string): Promise<string> {
 
 export function mediaUrl(filename: string): string {
   const base = `${API_BASE}/api/media/${encodeURIComponent(filename)}`;
-  // When SW is active, it injects the Authorization header — no token in URL
-  if (typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
-    return base;
-  }
-  // Fallback: append token for first load before SW activates
+  // Always include ?token= in URL as a fallback.
+  // When SW has the auth token, it strips ?token= and adds Authorization header instead.
+  // When SW doesn't have the token yet (race on first load), ?token= passes through to backend.
   const token = typeof window !== "undefined" ? localStorage.getItem("drevo_token") : null;
   return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
