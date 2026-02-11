@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedItem } from "@/components/animated-list";
 import { mediaUrl } from "@/lib/api";
 import { useInfo, useEvents } from "@/lib/swr";
+import { SafeImage } from "@/components/safe-image";
 
 const quickActions = [
   { href: "/tree", label: "Древо поколений", icon: GitFork, color: "text-primary" },
@@ -171,7 +172,7 @@ export default function HomePage() {
                 <Link href={`/person?id=${event.id}`} prefetch={false}>
                   <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
                     <CardContent className="flex items-center gap-4 py-4">
-                      <img
+                      <SafeImage
                         src={mediaUrl(event.photo)}
                         alt={`${event.lastName} ${event.firstName}`}
                         loading="lazy"

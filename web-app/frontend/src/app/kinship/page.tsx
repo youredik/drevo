@@ -6,10 +6,10 @@ import Link from "next/link";
 import { GitFork, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl } from "@/lib/api";
+import { PersonSearchSelect } from "@/components/person-search-select";
 
 export default function KinshipPage() {
   return <Suspense><KinshipContent /></Suspense>;
@@ -20,24 +20,22 @@ function KinshipContent() {
   const initialId1 = Number(searchParams.get("id1")) || 0;
   const initialId2 = Number(searchParams.get("id2")) || 0;
 
-  const [id1, setId1] = useState(String(initialId1 || ""));
-  const [id2, setId2] = useState(String(initialId2 || ""));
+  const [personId1, setPersonId1] = useState<number | undefined>(initialId1 || undefined);
+  const [personId2, setPersonId2] = useState<number | undefined>(initialId2 || undefined);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();
-    const n1 = parseInt(id1);
-    const n2 = parseInt(id2);
-    if (!n1 || !n2) {
-      setError("Укажите оба ID");
+    if (!personId1 || !personId2) {
+      setError("Выберите обоих людей");
       return;
     }
     setError("");
     setLoading(true);
     try {
-      const data = await api.getKinship(n1, n2);
+      const data = await api.getKinship(personId1, personId2);
       setResult(data);
     } catch (err: any) {
       setError(err.message || "Ошибка");
@@ -64,24 +62,26 @@ function KinshipContent() {
       <Card className="glass glass-hover mb-6">
         <CardContent className="py-4">
           <form onSubmit={handleCheck} className="flex flex-col sm:flex-row gap-3">
-            <Input
-              type="number"
-              placeholder="ID первого человека"
-              value={id1}
-              onChange={(e) => setId1(e.target.value)}
-              className="flex-1"
-            />
+            <div className="flex-1">
+              <PersonSearchSelect
+                value={personId1}
+                onChange={setPersonId1}
+                placeholder="Первый человек..."
+                excludeIds={personId2 ? [personId2] : []}
+              />
+            </div>
             <div className="flex items-center justify-center">
               <ArrowRight className="h-4 w-4 text-muted-foreground rotate-90 sm:rotate-0" />
             </div>
-            <Input
-              type="number"
-              placeholder="ID второго человека"
-              value={id2}
-              onChange={(e) => setId2(e.target.value)}
-              className="flex-1"
-            />
-            <Button type="submit" disabled={loading}>
+            <div className="flex-1">
+              <PersonSearchSelect
+                value={personId2}
+                onChange={setPersonId2}
+                placeholder="Второй человек..."
+                excludeIds={personId1 ? [personId1] : []}
+              />
+            </div>
+            <Button type="submit" disabled={loading || !personId1 || !personId2}>
               {loading ? "..." : "Проверить"}
             </Button>
           </form>

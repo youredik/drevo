@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Tabs,
   TabsList,
@@ -32,6 +31,7 @@ import {
 } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl } from "@/lib/api";
+import { PersonSearchSelect } from "@/components/person-search-select";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -376,6 +376,61 @@ function GraphView({
     return () => container.removeEventListener("wheel", handler);
   }, []);
 
+  // Pinch-to-zoom on touch devices
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    let lastDist = 0;
+    let pinching = false;
+
+    const getDistance = (t1: Touch, t2: Touch) =>
+      Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinching = true;
+        lastDist = getDistance(e.touches[0], e.touches[1]);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!pinching || e.touches.length !== 2) return;
+      e.preventDefault();
+      const dist = getDistance(e.touches[0], e.touches[1]);
+      const delta = (dist - lastDist) * 0.005;
+      lastDist = dist;
+
+      const oldZoom = zoomRef.current;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, +(oldZoom + delta).toFixed(2)));
+      if (newZoom === oldZoom) return;
+
+      const rect = container.getBoundingClientRect();
+      const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+      const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+      const canvasX = (container.scrollLeft + cx) / oldZoom;
+      const canvasY = (container.scrollTop + cy) / oldZoom;
+
+      zoomRef.current = newZoom;
+      setZoom(newZoom);
+
+      requestAnimationFrame(() => {
+        container.scrollLeft = canvasX * newZoom - cx;
+        container.scrollTop = canvasY * newZoom - cy;
+      });
+    };
+
+    const onTouchEnd = () => { pinching = false; };
+
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd);
+    return () => {
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      container.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
   // Escape to exit fullscreen
   useEffect(() => {
     if (!fullscreen) return;
@@ -575,7 +630,6 @@ function TreeContent() {
   const initialId = Number(searchParams.get("id")) || 7;
 
   const [personId, setPersonId] = useState(initialId);
-  const [inputId, setInputId] = useState(String(initialId));
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [treeType, setTreeType] = useState<"ancestors" | "descendants">(
     "ancestors"
@@ -594,10 +648,8 @@ function TreeContent() {
       .finally(() => setLoading(false));
   }, [personId, treeType]);
 
-  const handleIdSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const id = parseInt(inputId);
-    if (id > 0) setPersonId(id);
+  const handlePersonSelect = (id: number | undefined) => {
+    if (id && id > 0) setPersonId(id);
   };
 
   const exportPng = useCallback(async () => {
@@ -618,18 +670,13 @@ function TreeContent() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold">Дерево поколений</h1>
-        <form onSubmit={handleIdSubmit} className="flex gap-2">
-          <Input
-            type="number"
-            placeholder="ID человека"
-            value={inputId}
-            onChange={(e) => setInputId(e.target.value)}
-            className="w-32"
+        <div className="w-64">
+          <PersonSearchSelect
+            value={personId}
+            onChange={handlePersonSelect}
+            placeholder="Найти человека..."
           />
-          <Button type="submit" variant="outline">
-            Показать
-          </Button>
-        </form>
+        </div>
       </div>
 
       {/* Tabs: tree type + view mode toggle + export */}

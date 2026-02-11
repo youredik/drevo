@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl, PersonCard } from "@/lib/api";
 import { toast } from "sonner";
 import { AnimatedItem } from "@/components/animated-list";
+import { SafeImage } from "@/components/safe-image";
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<PersonCard[]>([]);
@@ -83,7 +84,7 @@ export default function FavoritesPage() {
                   </Button>
                   <Link href={`/person?id=${p.id}`} prefetch={false}>
                     <CardContent className="flex flex-col items-center text-center gap-2 py-4">
-                      <img
+                      <SafeImage
                         src={mediaUrl(photo)}
                         alt={`${p.lastName} ${p.firstName}`}
                         loading="lazy"

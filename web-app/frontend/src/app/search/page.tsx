@@ -71,6 +71,13 @@ function SearchContent() {
       if (query.trim().length >= 2) {
         saveRecentSearch(query.trim());
         setRecentSearches(loadRecentSearches());
+        const url = new URL(window.location.href);
+        url.searchParams.set("q", query.trim());
+        window.history.replaceState({}, "", url.toString());
+      } else if (!query.trim()) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("q");
+        window.history.replaceState({}, "", url.toString());
       }
     }, 300);
     return () => clearTimeout(timer);
@@ -155,41 +162,43 @@ function SearchContent() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        <div role="group" aria-label="Фильтр по полу" className="flex flex-wrap gap-2">
-          {[
-            { key: "all" as const, label: "Все" },
-            { key: "male" as const, label: "Мужчины" },
-            { key: "female" as const, label: "Женщины" },
-          ].map((f) => (
-            <Button
-              key={f.key}
-              variant={sexFilter === f.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSexFilter(f.key)}
-            >
-              {f.label}
-            </Button>
-          ))}
+      {results.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <div role="group" aria-label="Фильтр по полу" className="flex flex-wrap gap-2">
+            {[
+              { key: "all" as const, label: "Все" },
+              { key: "male" as const, label: "Мужчины" },
+              { key: "female" as const, label: "Женщины" },
+            ].map((f) => (
+              <Button
+                key={f.key}
+                variant={sexFilter === f.key ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSexFilter(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+          <div className="w-px bg-border mx-1" />
+          <div role="group" aria-label="Фильтр по статусу" className="flex flex-wrap gap-2">
+            {[
+              { key: "all" as const, label: "Все" },
+              { key: "alive" as const, label: "Живые" },
+              { key: "dead" as const, label: "Умершие" },
+            ].map((f) => (
+              <Button
+                key={f.key}
+                variant={aliveFilter === f.key ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAliveFilter(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="w-px bg-border mx-1" />
-        <div role="group" aria-label="Фильтр по статусу" className="flex flex-wrap gap-2">
-          {[
-            { key: "all" as const, label: "Все" },
-            { key: "alive" as const, label: "Живые" },
-            { key: "dead" as const, label: "Умершие" },
-          ].map((f) => (
-            <Button
-              key={f.key}
-              variant={aliveFilter === f.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setAliveFilter(f.key)}
-            >
-              {f.label}
-            </Button>
-          ))}
-        </div>
-      </div>
+      )}
 
       {loading && (
         <div className="space-y-3">

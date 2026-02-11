@@ -208,6 +208,12 @@ export function Navbar() {
                     Статистика
                   </Button>
                 </Link>
+                <Link href="/kinship" prefetch={false} onClick={() => setOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start gap-3">
+                    <Users className="h-5 w-5" />
+                    Проверка родства
+                  </Button>
+                </Link>
                 <Button variant="ghost" className="w-full justify-start gap-3" onClick={toggleTheme}>
                   {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                   {theme === "dark" ? "Светлая тема" : "Тёмная тема"}

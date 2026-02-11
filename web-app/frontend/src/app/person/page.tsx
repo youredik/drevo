@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -15,6 +16,7 @@ import {
   Heart,
   X,
   ZoomIn,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,9 +29,15 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { ShareButton } from "@/components/share-button";
 import { Timeline } from "@/components/timeline";
+import { SafeImage } from "@/components/safe-image";
+
+function haptic(ms = 10) {
+  try { navigator?.vibrate?.(ms); } catch {}
+}
 
 function PersonContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { canEdit } = useAuth();
   const id = Number(searchParams.get("id")) || 1;
   const { data, isLoading: loading } = usePerson(id);
@@ -37,6 +45,7 @@ function PersonContent() {
   const { data: bioData } = useBio(id, data?.hasBio ?? false);
   const bio = bioData?.text ?? null;
   const isFav = favData?.isFavorite ?? false;
+  const [favLoading, setFavLoading] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -53,6 +62,9 @@ function PersonContent() {
   }, [data]);
 
   const toggleFavorite = async () => {
+    if (favLoading) return;
+    setFavLoading(true);
+    haptic();
     const wasFav = isFav;
     try {
       if (wasFav) {
@@ -72,7 +84,21 @@ function PersonContent() {
         toast.success("Добавлено в избранное");
       }
     } catch (e: any) { toast.error(e.message || "Не удалось обновить избранное"); }
+    finally { setFavLoading(false); }
   };
+
+  // Swipe navigation between persons
+  const handlePersonSwipe = useCallback((_: any, info: { offset: { x: number }; velocity: { x: number } }) => {
+    if (lightboxOpen) return;
+    const threshold = 80;
+    if (info.offset.x < -threshold && Math.abs(info.velocity.x) > 0.3) {
+      haptic();
+      router.push(`/person?id=${id + 1}`);
+    } else if (info.offset.x > threshold && Math.abs(info.velocity.x) > 0.3 && id > 1) {
+      haptic();
+      router.push(`/person?id=${id - 1}`);
+    }
+  }, [id, lightboxOpen, router]);
 
   const photos = data?.photos ?? [];
 
@@ -156,12 +182,21 @@ function PersonContent() {
           title={`${person.lastName} ${person.firstName} — Drevo`}
           text={`${person.lastName} ${person.firstName}`}
         />
-        <Button variant="outline" size="sm" className="gap-2" onClick={toggleFavorite}>
-          <Heart className={`h-4 w-4 ${isFav ? "fill-red-500 text-red-500" : ""}`} />
+        <Button variant="outline" size="sm" className="gap-2" onClick={toggleFavorite} disabled={favLoading}>
+          {favLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Heart className={`h-4 w-4 ${isFav ? "fill-red-500 text-red-500" : ""}`} />
+          )}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-6">
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.15}
+        onDragEnd={handlePersonSwipe}
+        className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-6">
         {/* Photo */}
         <div className="relative">
           <div
@@ -314,7 +349,7 @@ function PersonContent() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
+      </motion.div>
 
       {/* Lightbox */}
       <AnimatePresence>
@@ -390,7 +425,7 @@ function PersonMiniCard({ person, relation }: { person: PersonBrief; relation: s
     <Link href={`/person?id=${person.id}`} prefetch={false}>
       <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
         <CardContent className="flex items-center gap-3 py-3">
-          <img
+          <SafeImage
             src={mediaUrl(person.photo)}
             alt=""
             loading="lazy"

@@ -11,6 +11,7 @@ import { NavProgress } from "@/components/nav-progress";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { InstallPrompt } from "@/components/install-prompt";
+import { ShortcutsModal } from "@/components/shortcuts-modal";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -28,6 +29,7 @@ export function Providers({ children }: { children: ReactNode }) {
           </ErrorBoundary>
           <ScrollToTop />
           <InstallPrompt />
+          <ShortcutsModal />
           <Toaster position="top-right" richColors closeButton duration={4000} />
         </TooltipProvider>
       </AuthProvider>

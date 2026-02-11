@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { mediaUrl, EventItem } from "@/lib/api";
 import { useEvents } from "@/lib/swr";
 import { AnimatedItem } from "@/components/animated-list";
+import { SafeImage } from "@/components/safe-image";
 
 const MONTH_NAMES = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -120,7 +121,7 @@ export default function EventsPage() {
       <Link href={`/person?id=${event.id}`} prefetch={false}>
         <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
           <CardContent className="flex items-center gap-4 py-3">
-            <img
+            <SafeImage
               src={mediaUrl(event.photo)}
               alt={`${event.lastName} ${event.firstName}`}
               loading="lazy"
