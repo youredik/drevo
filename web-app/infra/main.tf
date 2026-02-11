@@ -71,8 +71,8 @@ resource "yandex_function" "api" {
   user_hash          = filesha256("${path.module}/../functions/dist/api.zip")
   runtime            = "nodejs18"
   entrypoint         = "handler.handler"
-  memory             = 256
-  execution_timeout  = "10"
+  memory             = 512
+  execution_timeout  = "30"
   service_account_id = yandex_iam_service_account.drevo_sa.id
 
   environment = {

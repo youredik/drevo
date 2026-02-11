@@ -29,20 +29,25 @@ async function init(): Promise<DataRepository> {
       console.log("YDB configured, connecting...");
       await ensureTables();
       await migrateFromCsv(CSV_PATH, FAV_PATH);
-      const { persons, favorites } = await loadAllFromYdb();
-      repo = DataRepository.fromData(persons, favorites, MEDIA_PATH, INFO_PATH);
+      // Load data and users in parallel (both read from YDB independently)
+      const [ydbData] = await Promise.all([
+        loadAllFromYdb(),
+        initUsers(),
+      ]);
+      repo = DataRepository.fromData(ydbData.persons, ydbData.favorites, MEDIA_PATH, INFO_PATH);
       useYdb = true;
       console.log(`Loaded ${repo.getPersonCount()} persons from YDB`);
     } catch (e: any) {
       console.error("YDB init failed, falling back to CSV:", e.message);
       repo = new DataRepository(CSV_PATH, FAV_PATH, MEDIA_PATH, INFO_PATH);
+      await initUsers();
     }
   } else {
     repo = new DataRepository(CSV_PATH, FAV_PATH, MEDIA_PATH, INFO_PATH);
+    await initUsers();
     console.log(`Loaded ${repo.getPersonCount()} persons from CSV`);
   }
 
-  await initUsers();
   return repo;
 }
 

@@ -71,30 +71,31 @@ const TABLES = {
 export async function ensureTables(): Promise<void> {
   const driver = await getYdbDriver();
 
-  await driver.tableClient.withSession(async (session) => {
-    for (const [name, desc] of Object.entries(TABLES)) {
-      try {
-        await session.createTable(name, desc);
-        console.log(`Table '${name}' created`);
-      } catch (e: any) {
-        // Table already exists — ignore
-        if (e.message?.includes("ALREADY_EXISTS") || e.issues?.some((i: any) => i.message?.includes("already exists"))) {
-          console.log(`Table '${name}' already exists`);
-        } else {
-          throw e;
+  // Create all tables in parallel (each with its own session)
+  await Promise.all(
+    Object.entries(TABLES).map(([name, desc]) =>
+      driver.tableClient.withSession(async (session) => {
+        try {
+          await session.createTable(name, desc);
+          console.log(`Table '${name}' created`);
+        } catch (e: any) {
+          if (e.message?.includes("ALREADY_EXISTS") || e.issues?.some((i: any) => i.message?.includes("already exists"))) {
+            console.log(`Table '${name}' already exists`);
+          } else {
+            throw e;
+          }
         }
-      }
-    }
-  });
+      })
+    )
+  );
 }
 
 // ─── Migration: CSV → YDB ───────────────────────────────
 
 export async function migrateFromCsv(csvPath: string, favPath?: string): Promise<number> {
   const driver = await getYdbDriver();
-  const persons = parsePersonsCsv(csvPath);
 
-  // Check if data already exists
+  // Check if data already exists BEFORE parsing CSV
   const countResult = await driver.tableClient.withSession(async (session) => {
     const result = await session.executeQuery("SELECT COUNT(*) AS cnt FROM persons;");
     const rows = result.resultSets[0]?.rows || [];
@@ -105,6 +106,9 @@ export async function migrateFromCsv(csvPath: string, favPath?: string): Promise
     console.log(`YDB already has ${countResult} persons, skipping migration`);
     return countResult;
   }
+
+  // Only parse CSV when migration is actually needed
+  const persons = parsePersonsCsv(csvPath);
 
   console.log(`Migrating ${persons.size} persons from CSV to YDB...`);
 

@@ -72,13 +72,26 @@ export async function loadAllFromYdb(): Promise<{
 }> {
   const driver = await getYdbDriver();
 
-  // Load spouses (paginate by person_id)
+  // Load all four datasets in parallel
+  const [spouseRows, childRows, personRows, favorites] = await Promise.all([
+    queryAllRows(driver, "SELECT person_id, spouse_id FROM spouses", "person_id"),
+    queryAllRows(driver, "SELECT parent_id, child_id FROM children", "parent_id"),
+    queryAllRows(
+      driver,
+      `SELECT id, sex, first_name, last_name, father_id, mother_id,
+              birth_place, birth_day, death_place, death_day, address,
+              order_by_dad, order_by_mom, order_by_spouse, marry_day
+       FROM persons`,
+      "id"
+    ),
+    driver.tableClient.withSession(async (session: any) => {
+      const result = await session.executeQuery("SELECT slot_index, person_id FROM favorites ORDER BY slot_index;");
+      return (result.resultSets[0]?.rows || []).map((row: any) => Number(row.items?.[1]?.uint64Value || 0));
+    }),
+  ]);
+
+  // Build spouse map
   const spouseMap = new Map<number, number[]>();
-  const spouseRows = await queryAllRows(
-    driver,
-    "SELECT person_id, spouse_id FROM spouses",
-    "person_id"
-  );
   for (const row of spouseRows) {
     const personId = Number(row.items?.[0]?.uint64Value || 0);
     const spouseId = Number(row.items?.[1]?.uint64Value || 0);
@@ -86,13 +99,8 @@ export async function loadAllFromYdb(): Promise<{
     spouseMap.get(personId)!.push(spouseId);
   }
 
-  // Load children (paginate by parent_id)
+  // Build child map
   const childMap = new Map<number, number[]>();
-  const childRows = await queryAllRows(
-    driver,
-    "SELECT parent_id, child_id FROM children",
-    "parent_id"
-  );
   for (const row of childRows) {
     const parentId = Number(row.items?.[0]?.uint64Value || 0);
     const childId = Number(row.items?.[1]?.uint64Value || 0);
@@ -100,29 +108,12 @@ export async function loadAllFromYdb(): Promise<{
     childMap.get(parentId)!.push(childId);
   }
 
-  // Load persons (paginate by id)
+  // Build persons map
   const persons = new Map<number, Person>();
-  const personRows = await queryAllRows(
-    driver,
-    `SELECT id, sex, first_name, last_name, father_id, mother_id,
-            birth_place, birth_day, death_place, death_day, address,
-            order_by_dad, order_by_mom, order_by_spouse, marry_day
-     FROM persons`,
-    "id"
-  );
   for (const row of personRows) {
     const person = rowToPerson(row, spouseMap, childMap);
     persons.set(person.id, person);
   }
-
-  // Load favorites (small table, single query is fine)
-  const favorites: number[] = [];
-  await driver.tableClient.withSession(async (session: any) => {
-    const result = await session.executeQuery("SELECT slot_index, person_id FROM favorites ORDER BY slot_index;");
-    for (const row of result.resultSets[0]?.rows || []) {
-      favorites.push(Number(row.items?.[1]?.uint64Value || 0));
-    }
-  });
 
   return { persons, favorites };
 }
