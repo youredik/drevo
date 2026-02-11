@@ -206,6 +206,7 @@ export class DataRepository {
           deathDay: person.deathDay,
           address: person.address,
           age: calculateAge(person.birthDay, person.deathDay),
+          photo: this.getDefaultPhoto(person),
           matchField,
         });
       }

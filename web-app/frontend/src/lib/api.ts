@@ -54,6 +54,7 @@ export interface SearchResult {
   deathDay: string;
   address: string;
   age: string;
+  photo: string;
   matchField: string;
 }
 

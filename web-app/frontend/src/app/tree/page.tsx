@@ -32,6 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl } from "@/lib/api";
 import { PersonSearchSelect } from "@/components/person-search-select";
+import { SafeImage } from "@/components/safe-image";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -224,7 +225,7 @@ function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
           height: NODE_H,
         }}
       >
-        <img
+        <SafeImage
           src={mediaUrl(node.photo)}
           alt={node.firstName + ' ' + node.lastName}
           loading="lazy"
@@ -589,7 +590,7 @@ function TreeNodeComponent({
           prefetch={false}
           className="flex items-center gap-2 hover:bg-muted/50 rounded-lg px-2 py-1 transition-colors"
         >
-          <img
+          <SafeImage
             src={mediaUrl(node.photo)}
             alt={node.firstName + ' ' + node.lastName}
             loading="lazy"

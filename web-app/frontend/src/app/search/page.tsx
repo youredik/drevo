@@ -9,9 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { SearchResult } from "@/lib/api";
+import { SearchResult, mediaUrl } from "@/lib/api";
 import { useSearch } from "@/lib/swr";
 import { AnimatedItem } from "@/components/animated-list";
+import { SafeImage } from "@/components/safe-image";
 
 const RECENT_SEARCHES_KEY = "drevo_recent_searches";
 const MAX_RECENT = 5;
@@ -229,11 +230,14 @@ function SearchContent() {
                 <Link href={`/person?id=${r.id}`} prefetch={false}>
                   <Card className="glass glass-hover card-press hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="flex items-center gap-4 py-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${
-                        isAlive ? "bg-primary" : "bg-destructive"
-                      }`}>
-                        {r.id}
-                      </div>
+                      <SafeImage
+                        src={mediaUrl(r.photo)}
+                        alt={`${r.lastName} ${r.firstName}`}
+                        loading="lazy"
+                        className={`h-10 w-10 rounded-full object-cover shrink-0 ring-2 ${
+                          isAlive ? "ring-emerald-400" : "ring-red-400"
+                        }`}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">
                           {r.lastName} {r.firstName}
