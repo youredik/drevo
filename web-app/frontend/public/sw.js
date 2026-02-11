@@ -1,8 +1,17 @@
-const CACHE_NAME = "drevo-v3";
-const API_CACHE_NAME = "drevo-api-v3";
-const MEDIA_CACHE_NAME = "drevo-media-v1";
+const CACHE_NAME = "drevo-v4";
+const API_CACHE_NAME = "drevo-api-v4";
+const MEDIA_CACHE_NAME = "drevo-media-v2";
 const STATIC_ASSETS = ["/", "/search", "/events", "/tree", "/favorites", "/stats"];
 const MEDIA_CACHE_MAX = 200;
+
+// Auth token received from the app via postMessage
+let authToken = null;
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SET_TOKEN") {
+    authToken = event.data.token;
+  }
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -36,21 +45,42 @@ async function trimCache(cacheName, maxItems) {
   }
 }
 
+// Build an authenticated request: strip ?token= from URL, add Authorization header
+function buildAuthRequest(request) {
+  const url = new URL(request.url);
+  url.searchParams.delete("token");
+
+  const headers = new Headers(request.headers);
+  if (authToken && !headers.has("Authorization")) {
+    headers.set("Authorization", "Bearer " + authToken);
+  }
+
+  return new Request(url.toString(), {
+    headers,
+    mode: request.mode,
+    credentials: request.credentials,
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
 
-  // Media requests: cache-first with background update (photos)
+  // Media requests: inject auth header, cache-first with background update
   if (url.pathname.startsWith("/api/media/")) {
+    const authRequest = buildAuthRequest(request);
+    // Use clean URL (without token) as cache key
+    const cacheKey = authRequest;
+
     event.respondWith(
       caches.open(MEDIA_CACHE_NAME).then((cache) =>
-        cache.match(request).then((cached) => {
-          const fetchPromise = fetch(request)
+        cache.match(cacheKey).then((cached) => {
+          const fetchPromise = fetch(authRequest)
             .then((response) => {
               if (response.ok) {
-                cache.put(request, response.clone());
+                cache.put(cacheKey, response.clone());
                 trimCache(MEDIA_CACHE_NAME, MEDIA_CACHE_MAX);
               }
               return response;

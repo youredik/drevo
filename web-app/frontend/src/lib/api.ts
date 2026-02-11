@@ -156,7 +156,7 @@ export interface PersonFormData {
 
 // ─── HTTP client ────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const REQUEST_TIMEOUT = 30_000; // 30 seconds
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -217,8 +217,13 @@ async function requestText(path: string): Promise<string> {
 }
 
 export function mediaUrl(filename: string): string {
-  const token = typeof window !== "undefined" ? localStorage.getItem("drevo_token") : null;
   const base = `${API_BASE}/api/media/${encodeURIComponent(filename)}`;
+  // When SW is active, it injects the Authorization header — no token in URL
+  if (typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
+    return base;
+  }
+  // Fallback: append token for first load before SW activates
+  const token = typeof window !== "undefined" ? localStorage.getItem("drevo_token") : null;
   return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
 

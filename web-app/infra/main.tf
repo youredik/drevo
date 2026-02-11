@@ -69,10 +69,10 @@ resource "yandex_function" "api" {
   name               = "${var.project_name}-api"
   description        = "Drevo API function"
   user_hash          = filesha256("${path.module}/../functions/dist/api.zip")
-  runtime            = "nodejs18"
+  runtime            = "nodejs22"
   entrypoint         = "handler.handler"
   memory             = 512
-  execution_timeout  = "30"
+  execution_timeout  = "60"
   service_account_id = yandex_iam_service_account.drevo_sa.id
 
   environment = {
@@ -91,6 +91,19 @@ resource "yandex_function" "api" {
 
   content {
     zip_filename = "${path.module}/../functions/dist/api.zip"
+  }
+}
+
+# ─── Keep-alive timer trigger ────────────────────────
+
+resource "yandex_function_trigger" "keepalive" {
+  name = "${var.project_name}-keepalive"
+  timer {
+    cron_expression = "*/3 * * * ? *"
+  }
+  function {
+    id                 = yandex_function.api.id
+    service_account_id = yandex_iam_service_account.drevo_sa.id
   }
 }
 

@@ -5,7 +5,7 @@ import { isYdbConfigured } from "./shared/ydb-client.js";
 import { ensureTables, migrateFromCsv } from "./shared/ydb-schema.js";
 import { loadAllFromYdb } from "./shared/ydb-repository.js";
 import type { YcEvent, YcResponse, RouteContext } from "./routes/types.js";
-import { getAuthUser, err } from "./routes/helpers.js";
+import { getAuthUser, err, json } from "./routes/helpers.js";
 import { publicRoutes } from "./routes/public.js";
 import { authRoutes } from "./routes/auth.js";
 import { adminRoutes } from "./routes/admin.js";
@@ -79,6 +79,12 @@ function corsHeaders(origin?: string): Record<string, string> {
 // ─── Handler ────────────────────────────────────────────
 export async function handler(event: YcEvent, _context: unknown): Promise<YcResponse> {
   const r = await init();
+
+  // Timer trigger (keep-alive cron) — no HTTP method
+  if (!event.httpMethod) {
+    return { statusCode: 200, headers: {}, body: '{"status":"warm"}', isBase64Encoded: false };
+  }
+
   const method = event.httpMethod;
   const url = event.url || "";
   const query = event.queryStringParameters || {};
@@ -92,6 +98,11 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
 
   const rawPath = url.split("?")[0];
   const apiPath = rawPath.startsWith("/api") ? rawPath.slice(4) : rawPath;
+
+  // Health check / keep-alive (no auth required)
+  if (method === "GET" && apiPath === "/ping") {
+    return json(cors, { status: "ok", ts: Date.now() });
+  }
 
   // Global auth check (all endpoints except login)
   if (!(method === "POST" && apiPath === "/auth/login")) {

@@ -49,7 +49,7 @@ export function Navbar() {
   const { user, logout, isAdmin, canEdit } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
-  const { data: eventsData } = useEvents(3, true);
+  const { data: eventsData } = useEvents(user ? 3 : null, true);
   const todayCount = eventsData?.events.filter((e) => e.daysUntil === 0).length ?? 0;
 
   // Hide navbar on login page
