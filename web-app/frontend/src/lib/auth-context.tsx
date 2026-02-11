@@ -28,12 +28,6 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
 });
 
-function notifySwToken(token: string | null) {
-  if (typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
-    navigator.serviceWorker.controller.postMessage({ type: "SET_TOKEN", token });
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const token = localStorage.getItem("drevo_token");
     if (token) {
-      notifySwToken(token);
       api
         .getMe()
         .then((data) => setUser(data.user as User))
@@ -67,13 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (loginStr: string, password: string) => {
     const data = await api.login(loginStr, password);
     localStorage.setItem("drevo_token", data.token);
-    notifySwToken(data.token);
     setUser(data.user as User);
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem("drevo_token");
-    notifySwToken(null);
     setUser(null);
   }, []);
 
