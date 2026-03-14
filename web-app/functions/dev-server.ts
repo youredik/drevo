@@ -18,7 +18,7 @@ import type { Person, PersonFormData } from "./shared/types.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Paths to Android app assets
-const ASSETS = join(__dirname, "..", "..", "android-app", "app", "src", "main", "assets");
+const ASSETS = process.env.ASSETS_PATH || join(__dirname, "..", "..", "android-app", "app", "src", "main", "assets");
 const CSV_PATH = join(ASSETS, "fam.csv");
 const FAV_PATH = join(ASSETS, "fav.csv");
 const MEDIA_PATH = join(ASSETS, "images");
@@ -32,6 +32,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use("/api", (req, res, next) => {
   if (req.method === "OPTIONS") return next();
   if (req.method === "POST" && req.path === "/auth/login") return next();
+  if (req.method === "GET" && req.path === "/ping") return next();
   // Support token from query string (for <img src> media URLs)
   if (!req.headers.authorization && req.query.token) {
     req.headers.authorization = `Bearer ${req.query.token}`;
@@ -63,6 +64,11 @@ if (isYdbConfigured()) {
 }
 
 await initUsers();
+
+// ─── Health check ─────────────────────────────────────
+app.get("/api/ping", (_req, res) => {
+  res.json({ status: "ok", ts: Date.now() });
+});
 
 // ─── Public API ───────────────────────────────────────
 

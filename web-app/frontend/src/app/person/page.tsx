@@ -273,8 +273,8 @@ function PersonContent() {
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                 <InfoRow label="Дата рождения" value={person.birthDay || "—"} />
                 <InfoRow label="Место рождения" value={person.birthPlace || "—"} />
-                {!isAlive && <InfoRow label="Дата смерти" value={person.deathDay || "—"} />}
-                {!isAlive && person.deathPlace && <InfoRow label="Место смерти" value={person.deathPlace} />}
+                {!isAlive && <InfoRow label="Дата кончины" value={person.deathDay || "—"} />}
+                {!isAlive && person.deathPlace && <InfoRow label="Место кончины" value={person.deathPlace} />}
                 {person.address && <InfoRow label="Адрес" value={person.address} />}
                 {person.marryDay && <InfoRow label="Дата свадьбы" value={person.marryDay} />}
                 <InfoRow label="Пол" value={person.sex === 1 ? "Мужской" : "Женский"} />
@@ -341,7 +341,7 @@ function PersonContent() {
                 <Timeline events={[
                   ...(person.birthDay ? [{ date: person.birthDay, label: `Родился: ${person.lastName} ${person.firstName}`, type: "birth" as const }] : []),
                   ...(person.marryDay ? [{ date: person.marryDay, label: "Свадьба", type: "marriage" as const }] : []),
-                  ...(person.deathDay ? [{ date: person.deathDay, label: `Смерть: ${person.lastName} ${person.firstName}`, type: "death" as const }] : []),
+                  ...(person.deathDay ? [{ date: person.deathDay, label: `Кончина: ${person.lastName} ${person.firstName}`, type: "death" as const }] : []),
                   ...(person.birthPlace ? [{ date: "", label: `Место рождения: ${person.birthPlace}`, type: "info" as const }] : []),
                   ...(person.address ? [{ date: "", label: `Адрес: ${person.address}`, type: "info" as const }] : []),
                 ]} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { api, mediaUrl } from "@/lib/api";
 
@@ -18,6 +18,7 @@ export function PersonSearchSelect({ value, onChange, placeholder = "Поиск 
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const stableExcludeIds = useMemo(() => excludeIds, [JSON.stringify(excludeIds)]);
 
   useEffect(() => {
     if (value && !selected) {
@@ -29,11 +30,11 @@ export function PersonSearchSelect({ value, onChange, placeholder = "Поиск 
     if (query.length < 2) { setResults([]); return; }
     const t = setTimeout(() => {
       api.search(query).then((d) => {
-        setResults(d.results.filter((r: any) => !excludeIds.includes(r.id)));
+        setResults(d.results.filter((r: any) => !stableExcludeIds.includes(r.id)));
       }).catch(() => {});
     }, 300);
     return () => clearTimeout(t);
-  }, [query, excludeIds]);
+  }, [query, stableExcludeIds]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

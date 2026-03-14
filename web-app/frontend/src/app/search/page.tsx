@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search as SearchIcon, Clock, X } from "lucide-react";
+import { Search as SearchIcon, Clock, X, Mic } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { SearchResult, mediaUrl } from "@/lib/api";
 import { useSearch } from "@/lib/swr";
 import { AnimatedItem } from "@/components/animated-list";
 import { SafeImage } from "@/components/safe-image";
+import { useVoiceSearch } from "@/hooks/use-voice-search";
 
 const RECENT_SEARCHES_KEY = "drevo_recent_searches";
 const MAX_RECENT = 5;
@@ -58,6 +59,13 @@ function SearchContent() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { listening, toggle: toggleVoice, supported: voiceSupported } = useVoiceSearch({
+    onResult: useCallback((text: string) => {
+      setQuery(text);
+      setDebouncedQuery(text);
+    }, []),
+  });
+
   const { data: searchData, isLoading: loading } = useSearch(debouncedQuery);
   const results: SearchResult[] = searchData?.results ?? [];
   const searched = debouncedQuery.trim().length >= 2 && !loading;
@@ -91,7 +99,7 @@ function SearchContent() {
       address: "Адрес",
       birthPlace: "Место рождения",
       birthDay: "Дата рождения",
-      deathDay: "Дата смерти",
+      deathDay: "Дата кончины",
       marryDay: "Дата свадьбы",
     };
     return labels[field] || field;
@@ -134,9 +142,23 @@ function SearchContent() {
           onBlur={() => {
             setTimeout(() => setFocused(false), 150);
           }}
-          className="pl-10 h-12 text-base"
+          className={`pl-10 ${voiceSupported ? "pr-10" : ""} h-12 text-base`}
           autoFocus
         />
+        {voiceSupported && (
+          <button
+            type="button"
+            onClick={toggleVoice}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors ${
+              listening
+                ? "text-red-500 animate-pulse bg-red-500/10"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title={listening ? "Остановить запись" : "Голосовой поиск"}
+          >
+            <Mic className="h-5 w-5" />
+          </button>
+        )}
 
         {showRecent && (
           <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -21,7 +21,7 @@ const typeColors: Record<string, string> = {
 
 const typeLabels: Record<string, string> = {
   birth: "Рождение",
-  death: "Смерть",
+  death: "Кончина",
   marriage: "Свадьба",
   info: "",
 };

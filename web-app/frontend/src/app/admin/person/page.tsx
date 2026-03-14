@@ -135,7 +135,7 @@ function PersonEditor() {
       return;
     }
     if (!validateDate(form.deathDay)) {
-      toast.error("Неверный формат даты смерти");
+      toast.error("Неверный формат даты кончины");
       return;
     }
     if (!validateDate(form.marryDay)) {
@@ -382,11 +382,11 @@ function PersonEditor() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="field-deathDay">Дата смерти</Label>
+                  <Label htmlFor="field-deathDay">Дата кончины</Label>
                   <Input id="field-deathDay" value={form.deathDay} onChange={(e) => updateForm({ deathDay: e.target.value })} placeholder="Пусто = жив" />
                 </div>
                 <div>
-                  <Label htmlFor="field-deathPlace">Место смерти</Label>
+                  <Label htmlFor="field-deathPlace">Место кончины</Label>
                   <Input id="field-deathPlace" value={form.deathPlace} onChange={(e) => updateForm({ deathPlace: e.target.value })} />
                 </div>
               </div>

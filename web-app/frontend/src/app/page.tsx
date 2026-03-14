@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -11,6 +11,7 @@ import {
   GitFork,
   BarChart3,
   ArrowRight,
+  Mic,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import { AnimatedItem } from "@/components/animated-list";
 import { mediaUrl } from "@/lib/api";
 import { useInfo, useEvents } from "@/lib/swr";
 import { SafeImage } from "@/components/safe-image";
+import { useVoiceSearch } from "@/hooks/use-voice-search";
 
 const quickActions = [
   { href: "/tree", label: "Древо поколений", icon: GitFork, color: "text-primary" },
@@ -32,6 +34,12 @@ const quickActions = [
 export default function HomePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const { listening, toggle: toggleVoice, supported: voiceSupported } = useVoiceSearch({
+    onResult: useCallback((text: string) => {
+      setSearchQuery(text);
+      router.push(`/search?q=${encodeURIComponent(text.trim())}`);
+    }, [router]),
+  });
   const { data: infoData, isLoading: infoLoading } = useInfo();
   const { data: eventsData, isLoading: eventsLoading } = useEvents(3, true);
 
@@ -88,13 +96,13 @@ export default function HomePage() {
           <h1 className="text-responsive-hero font-bold tracking-tight mb-3">
             Семейное древо
           </h1>
-          <p className="text-muted-foreground text-lg mb-8">
+          <div className="text-muted-foreground text-lg mb-8">
             {loading ? (
               <Skeleton className="h-6 w-48 mx-auto" />
             ) : (
-              <>{personCount} человек в нашей семье</>
+              <p>{personCount} человек в нашей семье</p>
             )}
-          </p>
+          </div>
 
           <form onSubmit={handleSearch} className="flex gap-2 max-w-lg mx-auto">
             <div className="relative flex-1">
@@ -103,8 +111,22 @@ export default function HomePage() {
                 placeholder="Поиск по имени, фамилии, дате..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-12 text-base"
+                className={`pl-10 ${voiceSupported ? "pr-10" : ""} h-12 text-base`}
               />
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors ${
+                    listening
+                      ? "text-red-500 animate-pulse bg-red-500/10"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={listening ? "Остановить запись" : "Голосовой поиск"}
+                >
+                  <Mic className="h-5 w-5" />
+                </button>
+              )}
             </div>
             <Button type="submit" size="lg" className="h-12 px-6">
               Найти
