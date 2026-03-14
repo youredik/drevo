@@ -17,10 +17,12 @@ import {
   X,
   ZoomIn,
   Loader2,
+  Star,
+  MessageSquare,
+  List,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, mediaUrl, PersonBrief } from "@/lib/api";
@@ -48,12 +50,12 @@ function PersonContent() {
   const [favLoading, setFavLoading] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   useEffect(() => {
     setPhotoIndex(0);
   }, [id]);
 
-  // Dynamic page title
   useEffect(() => {
     if (data) {
       document.title = `${data.person.lastName} ${data.person.firstName} — Drevo`;
@@ -87,7 +89,6 @@ function PersonContent() {
     finally { setFavLoading(false); }
   };
 
-  // Swipe navigation between persons
   const handlePersonSwipe = useCallback((_: any, info: { offset: { x: number }; velocity: { x: number } }) => {
     if (lightboxOpen) return;
     const threshold = 80;
@@ -124,10 +125,13 @@ function PersonContent() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
-        <Skeleton className="h-80 rounded-2xl mb-6" />
-        <Skeleton className="h-8 w-64 mb-4" />
-        <Skeleton className="h-20 rounded-xl" />
+      <div className="max-w-lg mx-auto px-2 py-4">
+        <div className="grid grid-cols-2 gap-1 mb-1">
+          <Skeleton className="aspect-square rounded bg-gray-800" />
+          <Skeleton className="aspect-square rounded bg-gray-800" />
+        </div>
+        <Skeleton className="aspect-square rounded-xl bg-gray-800 mb-2" />
+        <Skeleton className="h-6 w-48 mx-auto bg-gray-800" />
       </div>
     );
   }
@@ -146,120 +150,326 @@ function PersonContent() {
   const { person, father, mother, spouses, children, age, zodiac } = data;
   const isAlive = !person.deathDay || person.deathDay.trim() === "";
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
-      {/* Navigation */}
-      <div className="flex items-center gap-2 mb-6">
-        <Link href={`/person?id=${id - 1}`} prefetch={false}>
-          <Button variant="outline" size="icon" aria-label="Предыдущий"><ChevronLeft className="h-4 w-4" /></Button>
-        </Link>
-        <Badge variant="secondary">ID: {person.id}</Badge>
-        <Link href={`/person?id=${id + 1}`} prefetch={false}>
-          <Button variant="outline" size="icon" aria-label="Следующий"><ChevronRight className="h-4 w-4" /></Button>
-        </Link>
-        <div className="flex-1" />
-        <Link href={`/tree?id=${id}`} prefetch={false}>
-          <Button variant="outline" size="sm" className="gap-2">
-            <GitFork className="h-4 w-4" />
-            <span className="hidden sm:inline">Древо</span>
-          </Button>
-        </Link>
-        <Link href={`/kinship?id1=${id}`} prefetch={false}>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Родство</span>
-          </Button>
-        </Link>
-        {canEdit && (
-          <Link href={`/admin/person?id=${id}`} prefetch={false}>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Pencil className="h-4 w-4" />
-              <span className="hidden sm:inline">Редактировать</span>
-            </Button>
-          </Link>
-        )}
-        <ShareButton
-          title={`${person.lastName} ${person.firstName} — Drevo`}
-          text={`${person.lastName} ${person.firstName}`}
-        />
-        <Button variant="outline" size="sm" className="gap-2" onClick={toggleFavorite} disabled={favLoading}>
-          {favLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Heart className={`h-4 w-4 ${isFav ? "fill-red-500 text-red-500" : ""}`} />
-          )}
-        </Button>
-      </div>
+  // Check if today is the person's birthday
+  const isBirthday = (() => {
+    if (!person.birthDay) return false;
+    const match = person.birthDay.match(/(\d{1,2})\.(\d{1,2})/);
+    if (!match) return false;
+    const now = new Date();
+    return parseInt(match[1], 10) === now.getDate() && parseInt(match[2], 10) === (now.getMonth() + 1);
+  })();
 
+  // Spouses split into left/right sides like Android layout
+  const leftSpouses = spouses.filter((_, i) => i % 2 === 0).slice(0, 2);
+  const rightSpouses = spouses.filter((_, i) => i % 2 === 1).slice(0, 2);
+
+  return (
+    <div className="max-w-lg mx-auto px-0 sm:px-2 py-0 bg-black min-h-screen relative">
       <motion.div
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.15}
         onDragEnd={handlePersonSwipe}
-        className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-6">
-        {/* Photo */}
-        <div className="relative">
-          <div
-            className="aspect-[3/4] rounded-2xl overflow-hidden bg-muted cursor-pointer group"
-            onClick={() => setLightboxOpen(true)}
-          >
-            <motion.div
-              key={photoIndex}
-              drag={photos.length > 1 ? "x" : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.2}
-              onDragEnd={handleSwipeEnd}
-              className="w-full h-full"
-            >
-              <SafeImage
-                src={mediaUrl(photos[photoIndex])}
-                alt={`${person.lastName} ${person.firstName}`}
-                className="w-full h-full object-cover pointer-events-none"
-              />
-            </motion.div>
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none">
-              <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
-            </div>
+        className="flex flex-col"
+      >
+        {/* === PARENTS — side by side at top === */}
+        <div className="grid grid-cols-2 gap-0">
+          {/* Father */}
+          <div className="relative">
+            {father ? (
+              <Link href={`/person?id=${father.id}`} prefetch={false} className="block">
+                <div className="relative aspect-square overflow-hidden">
+                  <SafeImage
+                    src={mediaUrl(father.photo)}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5"
+                    style={{ background: "rgba(0,0,0,0.47)" }}>
+                    <p className="text-white text-xs font-medium truncate">
+                      {father.lastName} {father.firstName}
+                    </p>
+                  </div>
+                  {/* Child count badge */}
+                  {father.childCount != null && father.childCount > 0 && (
+                    <div className="absolute bottom-4 right-0 translate-x-1/2 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                      style={{ background: "#383838" }}>
+                      {father.childCount}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ) : (
+              <div className="aspect-square bg-gray-800 flex items-center justify-center">
+                <p className="text-white text-xs">Нет данных</p>
+              </div>
+            )}
           </div>
-          {photos.length > 1 && (
-            <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70"
-                onClick={prevPhoto}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-white text-sm bg-black/50 px-2 py-1 rounded-full">
-                {photoIndex + 1} / {photos.length}
-              </span>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70"
-                onClick={nextPhoto}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+
+          {/* Mother */}
+          <div className="relative">
+            {mother ? (
+              <Link href={`/person?id=${mother.id}`} prefetch={false} className="block">
+                <div className="relative aspect-square overflow-hidden">
+                  <SafeImage
+                    src={mediaUrl(mother.photo)}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-right"
+                    style={{ background: "rgba(0,0,0,0.47)" }}>
+                    <p className="text-white text-xs font-medium truncate">
+                      {mother.lastName} {mother.firstName}
+                    </p>
+                  </div>
+                  {mother.childCount != null && mother.childCount > 0 && (
+                    <div className="absolute bottom-4 left-0 -translate-x-1/2 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                      style={{ background: "#383838" }}>
+                      {mother.childCount}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ) : (
+              <div className="aspect-square bg-gray-800 flex items-center justify-center">
+                <p className="text-white text-xs">Нет данных</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Info */}
-        <div>
-          <h1 className="text-responsive-title font-bold mb-1">
-            {person.lastName} {person.firstName}
-          </h1>
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <Badge variant={isAlive ? "default" : "destructive"}>
-              {isAlive ? "Жив" : "Умер"}
-            </Badge>
-            {age && <span className="text-muted-foreground text-sm">{age}</span>}
-            {zodiac && <span className="text-muted-foreground text-sm">{zodiac}</span>}
+        {/* === MAIN PHOTO with SPOUSES on sides and NAV ARROWS === */}
+        <div className="relative flex items-stretch">
+          {/* Left side: nav arrow + spouses */}
+          <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 80 }}>
+            {/* Left navigation arrow */}
+            <Link href={`/person?id=${id - 1}`} prefetch={false}
+              className="text-green-400 hover:text-green-300 mb-2">
+              <ChevronLeft className="h-10 w-10" strokeWidth={3} />
+            </Link>
+            {/* Left spouses */}
+            {leftSpouses.map((s) => (
+              <Link key={s.id} href={`/person?id=${s.id}`} prefetch={false}
+                className="flex flex-col items-center mb-2">
+                <div className="rounded-full overflow-hidden"
+                  style={{ width: 70, height: 70, border: "2px solid white" }}>
+                  <SafeImage src={mediaUrl(s.photo)} alt="" loading="lazy"
+                    className="h-full w-full object-cover" />
+                </div>
+                <span className="text-white text-[10px] text-center mt-0.5 leading-tight">{s.firstName}</span>
+              </Link>
+            ))}
           </div>
 
-          <Tabs defaultValue="info" className="w-full">
+          {/* Center photo slider */}
+          <div className="flex-1 relative">
+            <div
+              className="aspect-square rounded-xl overflow-hidden bg-gray-900 cursor-pointer group"
+              onClick={() => setLightboxOpen(true)}
+            >
+              <motion.div
+                key={photoIndex}
+                drag={photos.length > 1 ? "x" : false}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.2}
+                onDragEnd={handleSwipeEnd}
+                className="w-full h-full"
+              >
+                <SafeImage
+                  src={mediaUrl(photos[photoIndex])}
+                  alt={`${person.lastName} ${person.firstName}`}
+                  className="w-full h-full object-cover pointer-events-none"
+                />
+              </motion.div>
+            </div>
+            {/* Dot pagination */}
+            {photos.length > 1 && (
+              <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                {photos.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`rounded-full transition-all ${i === photoIndex ? "h-2.5 w-2.5 bg-white" : "h-2 w-2 bg-gray-500"}`}
+                    onClick={() => setPhotoIndex(i)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right side: nav arrow + spouses */}
+          <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 80 }}>
+            {/* Right navigation arrow */}
+            <Link href={`/person?id=${id + 1}`} prefetch={false}
+              className="text-green-400 hover:text-green-300 mb-2">
+              <ChevronRight className="h-10 w-10" strokeWidth={3} />
+            </Link>
+            {/* Right spouses */}
+            {rightSpouses.map((s) => (
+              <Link key={s.id} href={`/person?id=${s.id}`} prefetch={false}
+                className="flex flex-col items-center mb-2">
+                <div className="rounded-full overflow-hidden"
+                  style={{ width: 70, height: 70, border: "2px solid white" }}>
+                  <SafeImage src={mediaUrl(s.photo)} alt="" loading="lazy"
+                    className="h-full w-full object-cover" />
+                </div>
+                <span className="text-white text-[10px] text-center mt-0.5 leading-tight">{s.firstName}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* === PERSON NAME === */}
+        <div className="text-center py-2 px-2" style={{ background: "rgba(32,32,32,0.5)" }}>
+          <p className="text-white text-sm font-serif">
+            {person.lastName} {person.firstName} {age || ""}
+          </p>
+        </div>
+
+        {/* === CHILDREN — horizontal row === */}
+        {children.length > 0 && (
+          <div className="flex justify-center gap-4 overflow-x-auto py-3 px-2 scrollbar-none">
+            {children.map((c) => (
+              <Link key={c.id} href={`/person?id=${c.id}`} prefetch={false}
+                className="flex flex-col items-center gap-1 shrink-0">
+                <div className="relative">
+                  <div className="rounded-full overflow-hidden"
+                    style={{ width: 60, height: 60, border: "2px solid white" }}>
+                    <SafeImage src={mediaUrl(c.photo)} alt="" loading="lazy"
+                      className="h-full w-full object-cover" />
+                  </div>
+                  {/* Child count badge like Android */}
+                  {c.childCount != null && c.childCount > 0 && (
+                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                      style={{ background: "#383838" }}>
+                      {c.childCount}
+                    </div>
+                  )}
+                </div>
+                <span className="text-white text-[11px] text-center leading-tight">{c.firstName}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* === FAB MENU — Android-style with open/close animation === */}
+        {/* Backdrop */}
+        {fabOpen && (
+          <div className="fixed inset-0 z-30 bg-black/30" onClick={() => setFabOpen(false)} />
+        )}
+
+        {/* Main FAB toggle — bottom right */}
+        <motion.button
+          className="fixed right-4 bottom-20 z-50 h-12 w-12 rounded-full flex items-center justify-center shadow-xl"
+          style={{ background: "#01579B" }}
+          onClick={() => setFabOpen(!fabOpen)}
+          animate={{ rotate: fabOpen ? 45 : 0 }}
+          transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
+        >
+          <List className="h-6 w-6 text-white" />
+        </motion.button>
+
+        {/* FAB items — column above main button */}
+        <AnimatePresence>
+          {fabOpen && (
+            <>
+              {/* Pause/Play slideshow (dfabPause) */}
+              <FabItem idx={0} x={0} y={-60}
+                icon={<ChevronRight className="h-5 w-5 text-white" />}
+                onClick={() => { /* slideshow toggle placeholder */ setFabOpen(false); }}
+                label="Слайдшоу"
+              />
+              {/* Favorites (dfabFav) */}
+              <FabItem idx={1} x={0} y={-120}
+                icon={<Star className={`h-5 w-5 ${isFav ? "fill-yellow-300 text-yellow-300" : "text-white"}`} />}
+                onClick={() => { toggleFavorite(); setFabOpen(false); }}
+                label="Избранное"
+              />
+              {/* Share (sendBtn) */}
+              <FabItem idx={2} x={-56} y={-60}
+                icon={<Copy className="h-5 w-5 text-white" />}
+                onClick={() => {
+                  navigator.clipboard?.writeText(`${person.lastName} ${person.firstName} — ${window.location.href}`);
+                  toast.success("Скопировано");
+                  setFabOpen(false);
+                }}
+                label="Поделиться"
+              />
+              {/* Tree (treeBtn) */}
+              <FabItem idx={3} x={-56} y={0}
+                icon={<GitFork className="h-5 w-5 text-white" />}
+                href={`/tree?id=${id}`}
+                label="Древо"
+              />
+              {/* Search by ID (dFabSearchId) */}
+              <FabItem idx={4} x={-112} y={0}
+                icon={<Users className="h-5 w-5 text-white" />}
+                href={`/search`}
+                label="Поиск"
+              />
+              {/* Kinship (dfabKinship) */}
+              <FabItem idx={5} x={-112} y={-60}
+                icon={<Users className="h-5 w-5 text-white" />}
+                href={`/kinship?id1=${id}`}
+                label="Родство"
+              />
+              {/* Family full list (dfabFamFull) */}
+              <FabItem idx={6} x={-56} y={-120}
+                icon={<List className="h-5 w-5 text-white" />}
+                href={`/favorites`}
+                label="Список"
+              />
+              {/* Edit (if admin) */}
+              {canEdit && (
+                <FabItem idx={7} x={-112} y={-120}
+                  icon={<Pencil className="h-5 w-5 text-white" />}
+                  href={`/admin/person?id=${id}`}
+                  label="Редакт."
+                />
+              )}
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* === BOTTOM STATUS BAR — like Android === */}
+        <div className="flex items-center gap-3 px-4 py-3 mt-2">
+          <button onClick={toggleFavorite} disabled={favLoading}>
+            <Star className={`h-6 w-6 ${isFav ? "fill-yellow-400 text-yellow-400" : "text-gray-500"}`} />
+          </button>
+          {data.hasBio && (
+            <MessageSquare className="h-5 w-5 text-gray-500 opacity-40" />
+          )}
+          {isBirthday && <span className="text-lg">🎂</span>}
+          <span className="font-mono px-2 py-0.5 rounded text-sm font-bold"
+            style={{ background: "#2D2D2D", color: isAlive ? "#80ff80" : "#FF0000" }}>
+            {person.id}
+          </span>
+          <div className="flex-1" />
+          {/* Bottom row action FABs — like Android's bottom row */}
+          <Link href={`/search`} prefetch={false}>
+            <div className="h-10 w-10 rounded-full flex items-center justify-center shadow-lg"
+              style={{ background: "#0288D1" }}>
+              <Users className="h-4 w-4 text-white" />
+            </div>
+          </Link>
+          <Link href={`/kinship?id1=${id}`} prefetch={false}>
+            <div className="h-10 w-10 rounded-full flex items-center justify-center shadow-lg"
+              style={{ background: "#0288D1" }}>
+              <Users className="h-4 w-4 text-white" />
+            </div>
+          </Link>
+          <Link href={`/tree?id=${id}`} prefetch={false}>
+            <div className="h-10 w-10 rounded-full flex items-center justify-center shadow-lg"
+              style={{ background: "#0288D1" }}>
+              <GitFork className="h-4 w-4 text-white" />
+            </div>
+          </Link>
+        </div>
+
+        {/* === TABS for details === */}
+        <div className="px-2 pb-8">
+          <Tabs defaultValue="info" className="w-full mt-2">
             <TabsList className="w-full">
               <TabsTrigger value="info" className="flex-1">Информация</TabsTrigger>
               <TabsTrigger value="family" className="flex-1">Семья</TabsTrigger>
@@ -419,6 +629,34 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function FabItem({ idx, x, y, icon, onClick, href, label }: {
+  idx: number; x: number; y: number; icon: React.ReactNode;
+  onClick?: () => void; href?: string; label?: string;
+}) {
+  const content = (
+    <motion.div
+      className="fixed z-40 flex flex-col items-center"
+      style={{ right: 16, bottom: 80 }}
+      initial={{ opacity: 0, x: 0, y: 0, scale: 0.3 }}
+      animate={{ opacity: 1, x, y, scale: 1 }}
+      exit={{ opacity: 0, x: 0, y: 0, scale: 0.3 }}
+      transition={{ duration: 0.35, delay: idx * 0.04, type: "spring", stiffness: 300, damping: 20 }}
+    >
+      <div className="h-11 w-11 rounded-full flex items-center justify-center shadow-xl cursor-pointer active:scale-90 transition-transform"
+        style={{ background: "#0288D1" }}
+        onClick={onClick}>
+        {icon}
+      </div>
+      {label && <span className="text-white text-[8px] mt-0.5 whitespace-nowrap">{label}</span>}
+    </motion.div>
+  );
+
+  if (href) {
+    return <Link href={href} prefetch={false}>{content}</Link>;
+  }
+  return content;
+}
+
 function PersonMiniCard({ person, relation }: { person: PersonBrief; relation: string }) {
   const isAlive = !person.deathDay || person.deathDay.trim() === "";
   return (
@@ -446,7 +684,7 @@ function PersonMiniCard({ person, relation }: { person: PersonBrief; relation: s
 
 export default function PersonPage() {
   return (
-    <Suspense fallback={<div className="max-w-4xl mx-auto px-4 py-8"><Skeleton className="h-80 rounded-2xl" /></div>}>
+    <Suspense fallback={<div className="max-w-lg mx-auto px-2 py-4"><Skeleton className="h-80 rounded-2xl bg-gray-800" /></div>}>
       <PersonContent />
     </Suspense>
   );

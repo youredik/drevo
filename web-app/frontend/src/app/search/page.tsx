@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Search as SearchIcon, Clock, X, Mic } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SearchResult, mediaUrl } from "@/lib/api";
@@ -91,19 +90,6 @@ function SearchContent() {
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
-
-  const matchFieldLabel = (field: string) => {
-    const labels: Record<string, string> = {
-      id: "ID",
-      name: "Имя",
-      address: "Адрес",
-      birthPlace: "Место рождения",
-      birthDay: "Дата рождения",
-      deathDay: "Дата кончины",
-      marryDay: "Дата свадьбы",
-    };
-    return labels[field] || field;
-  };
 
   const filteredResults = results.filter((r) => {
     if (sexFilter === "male" && r.sex !== 1) return false;
@@ -226,11 +212,12 @@ function SearchContent() {
       {loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4 rounded-xl border p-3">
-              <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-              <div className="flex-1 space-y-2">
+            <div key={i} className="flex gap-3 rounded-lg border p-2">
+              <Skeleton className="h-[90px] w-[90px] rounded-md shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
                 <Skeleton className="h-4 w-[60%] rounded" />
                 <Skeleton className="h-3 w-[40%] rounded" />
+                <Skeleton className="h-3 w-[50%] rounded" />
               </div>
             </div>
           ))}
@@ -245,46 +232,37 @@ function SearchContent() {
 
       {!loading && (
         <div className="space-y-2">
-          {filteredResults.map((r, i) => {
-            const isAlive = !r.deathDay || r.deathDay.trim() === "";
-            return (
+          {filteredResults.map((r, i) => (
               <AnimatedItem key={r.id} index={i}>
                 <Link href={`/person?id=${r.id}`} prefetch={false}>
-                  <Card className="glass glass-hover card-press hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="flex items-center gap-4 py-3">
+                  <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow cursor-pointer rounded-lg">
+                    <CardContent className="flex gap-3 p-2" style={{ background: "linear-gradient(180deg, #bbbbdd, #ddddff)", backgroundColor: "#84FFFF" }}>
                       <SafeImage
                         src={mediaUrl(r.photo)}
                         alt={`${r.lastName} ${r.firstName}`}
                         loading="lazy"
-                        className={`h-10 w-10 rounded-full object-cover shrink-0 ring-2 ${
-                          isAlive ? "ring-emerald-400" : "ring-red-400"
-                        }`}
+                        className="h-[90px] w-[90px] rounded-md object-cover shrink-0"
                       />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
-                          {r.lastName} {r.firstName}
+                      <div className="flex-1 min-w-0 py-1">
+                        <p className="font-bold text-black font-serif truncate">
+                          {r.lastName} {r.firstName} <span className="font-normal">#{r.id}</span>
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {r.age && <span className="text-xs text-muted-foreground">{r.age}</span>}
-                          {r.birthDay && (
-                            <span className="text-xs text-muted-foreground">{r.birthDay}</span>
-                          )}
-                          {r.address && (
-                            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                              {r.address}
-                            </span>
-                          )}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {r.birthDay && <span className="text-sm font-serif" style={{ color: "#004400" }}>{r.birthDay}</span>}
+                          {r.deathDay && <span className="text-sm font-serif" style={{ color: "#CC0000" }}>{r.deathDay}</span>}
+                        </div>
+                        {r.address && <p className="font-bold text-black font-serif mt-0.5 truncate" style={{ fontSize: "12px" }}>{r.address}</p>}
+                        {r.age && <p className="text-sm mt-0.5">{r.age}</p>}
+                        <div className="flex justify-between mt-1">
+                          <span className="text-xs font-bold" style={{ color: "#011CC7" }}>{i + 1}</span>
+                          <span className="text-xs text-black">#{r.id}</span>
                         </div>
                       </div>
-                      <Badge variant="outline" className="shrink-0 text-xs">
-                        {matchFieldLabel(r.matchField)}
-                      </Badge>
                     </CardContent>
                   </Card>
                 </Link>
               </AnimatedItem>
-            );
-          })}
+            ))}
         </div>
       )}
     </div>

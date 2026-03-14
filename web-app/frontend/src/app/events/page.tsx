@@ -119,50 +119,55 @@ export default function EventsPage() {
   };
 
   const renderEventCard = (event: EventItem, i: number) => (
-    <AnimatedItem key={`${event.id}-${event.eventType}-${i}`} index={i}>
-      <Link href={`/person?id=${event.id}`} prefetch={false}>
-        <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
-          <CardContent className="flex items-center gap-4 py-3">
-            <SafeImage
-              src={mediaUrl(event.photo)}
-              alt={`${event.lastName} ${event.firstName}`}
-              loading="lazy"
-              className="h-12 w-12 rounded-full object-cover bg-muted shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">
-                {event.lastName} {event.firstName}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className={eventTypeColor(event.eventType)}>
-                  {eventTypeLabel(event.eventType)}
-                </Badge>
-                {event.yearsCount > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {event.yearsCount} лет
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {event.daysUntil === 0 && (
-                <span className="h-2 w-2 rounded-full bg-primary pulse-dot" />
-              )}
-              <span className="text-sm text-muted-foreground">
-                {event.eventDate}
+    <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false} className="block">
+      <div
+        className="flex gap-2 p-1.5 cursor-pointer active:opacity-80"
+        style={{ background: "linear-gradient(180deg, #aaccaa, #ddffdd)", border: "1px solid #88aa88", borderRadius: 6, marginBottom: 2 }}
+      >
+        <SafeImage
+          src={mediaUrl(event.photo)}
+          alt=""
+          loading="lazy"
+          className="h-[100px] w-[100px] rounded object-cover shrink-0"
+        />
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <span className="font-bold" style={{ color: "#03AD03", fontSize: 15 }}>
+                {eventTypeLabel(event.eventType).toUpperCase()}
+              </span>
+              <span className="font-bold shrink-0" style={{ color: "#03AD03", fontSize: 15 }}>
+                {daysLabel(event.daysUntil)}
               </span>
             </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </AnimatedItem>
+            <p className="font-bold text-black truncate" style={{ fontSize: 17 }}>
+              {event.lastName} {event.firstName}
+            </p>
+            <div className="flex items-center gap-2" style={{ fontSize: 15 }}>
+              <span className="text-black">{event.eventDate}</span>
+              {event.deathDay && (
+                <span className="font-bold" style={{ color: "#CC0000" }}>{event.deathDay}</span>
+              )}
+            </div>
+            {event.yearsCount > 0 && (
+              <p className="text-black" style={{ fontSize: 15 }}>
+                {event.yearsCount} {event.yearsCount === 1 ? "год" : event.yearsCount < 5 ? "года" : "лет"}
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <span className="text-black font-bold" style={{ fontSize: 13 }}>#{event.id}</span>
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 
   return (
-    <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Ближайшие события</h1>
-      </div>
+    <div className="max-w-lg mx-auto px-2 py-4">
+      <p className="text-center text-muted-foreground text-sm mb-3">
+        Ближайшие события: <span className="font-bold">{events.length}</span>
+      </p>
 
       <Tabs
         value={viewMode}
@@ -242,17 +247,8 @@ export default function EventsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-6">
-              {Object.entries(grouped).map(([label, items]) => (
-                <div key={label}>
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    {label} ({items.length})
-                  </h2>
-                  <div className="space-y-2">
-                    {items.map((event, i) => renderEventCard(event, i))}
-                  </div>
-                </div>
-              ))}
+            <div>
+              {events.map((event, i) => renderEventCard(event, i))}
             </div>
           )}
         </TabsContent>
@@ -352,7 +348,7 @@ export default function EventsPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {selectedDayEvents.map((event, i) => renderEventCard(event, i))}
                 </div>
               )}

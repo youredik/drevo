@@ -8,28 +8,21 @@ import {
   TreePine,
   Search,
   CalendarDays,
-  GitFork,
-  BarChart3,
-  ArrowRight,
   Mic,
+  BarChart3,
+  Users,
+  Star,
+  ArrowRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedItem } from "@/components/animated-list";
 import { mediaUrl } from "@/lib/api";
 import { useInfo, useEvents } from "@/lib/swr";
 import { SafeImage } from "@/components/safe-image";
 import { useVoiceSearch } from "@/hooks/use-voice-search";
-
-const quickActions = [
-  { href: "/tree", label: "Древо поколений", icon: GitFork, color: "text-primary" },
-  { href: "/search", label: "Найти человека", icon: Search, color: "text-accent" },
-  { href: "/events", label: "Ближайшие события", icon: CalendarDays, color: "text-chart-5" },
-  { href: "/stats", label: "Статистика семьи", icon: BarChart3, color: "text-chart-3" },
-];
 
 export default function HomePage() {
   const router = useRouter();
@@ -63,55 +56,70 @@ export default function HomePage() {
     }
   };
 
-  const eventTypeColor = (type: string) => {
-    switch (type) {
-      case "birthday": return "bg-primary/10 text-primary";
-      case "memorial": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-      case "wedding": return "bg-accent/10 text-accent";
-      default: return "";
-    }
-  };
-
   const daysLabel = (days: number) => {
     if (days === 0) return "Сегодня";
     if (days === 1) return "Завтра";
     return `Через ${days} дн.`;
   };
 
+  const today = new Date();
+  const dateStr = today.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    .replace(/^./, (c) => c.toUpperCase());
+
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-6">
-      {/* Hero with gradient */}
-      <section className="py-12 md:py-20 text-center relative hero-gradient">
+    <div className="min-h-screen bg-black text-white">
+      {/* Hero section — dark background like Android */}
+      <section className="relative flex flex-col items-center justify-center px-4 pt-8 pb-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-2xl mx-auto"
+          className="w-full max-w-md mx-auto flex flex-col items-center"
         >
-          <div className="flex justify-center mb-6">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 glass-subtle flex items-center justify-center">
-              <TreePine className="h-9 w-9 text-primary" />
-            </div>
+          {/* Title */}
+          <div className="flex items-center gap-3 mb-2">
+            <TreePine className="h-8 w-8 text-yellow-400" />
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#CEBE2C" }}>
+              ФАМИЛЬНОЕ ДРЕВО
+            </h1>
           </div>
-          <h1 className="text-responsive-hero font-bold tracking-tight mb-3">
-            Семейное древо
-          </h1>
-          <div className="text-muted-foreground text-lg mb-8">
+
+          {/* Person count */}
+          <div className="text-center mb-6">
             {loading ? (
-              <Skeleton className="h-6 w-48 mx-auto" />
+              <Skeleton className="h-5 w-40 mx-auto bg-gray-700" />
             ) : (
-              <p>{personCount} человек в нашей семье</p>
+              <p className="text-sm" style={{ color: "#6ECEF8" }}>
+                Персон в базе: <span className="font-bold">{personCount}</span>
+              </p>
             )}
           </div>
 
-          <form onSubmit={handleSearch} className="flex gap-2 max-w-lg mx-auto">
+          {/* Main action buttons — like Android */}
+          <div className="w-full flex flex-col gap-3 mb-6">
+            <Link href="/tree" prefetch={false} className="block">
+              <button className="w-full py-4 px-8 text-xl font-semibold transition-colors active:bg-blue-900/50"
+                style={{ color: "#CEBE2C", background: "rgba(0,0,0,0.58)", border: "7px solid rgba(0,0,255,0.75)", borderRadius: "30px" }}>
+                ФАМИЛЬНОЕ ДРЕВО
+              </button>
+            </Link>
+            <Link href="/events" prefetch={false} className="block">
+              <button className="w-full py-4 px-8 text-lg font-semibold transition-colors active:bg-blue-900/50"
+                style={{ color: "#CEBE2C", background: "rgba(0,0,0,0.58)", border: "7px solid rgba(0,0,255,0.75)", borderRadius: "30px" }}>
+                БЛИЖАЙШИЕ СОБЫТИЯ
+              </button>
+            </Link>
+          </div>
+
+          {/* Search bar */}
+          <form onSubmit={handleSearch} className="w-full flex gap-2 mb-6">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Поиск по имени, фамилии, дате..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`pl-10 ${voiceSupported ? "pr-10" : ""} h-12 text-base`}
+                className={`pl-10 ${voiceSupported ? "pr-10" : ""} h-12 text-base bg-gray-900 border-gray-700 text-white placeholder:text-gray-500`}
               />
               {voiceSupported && (
                 <button
@@ -120,7 +128,7 @@ export default function HomePage() {
                   className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors ${
                     listening
                       ? "text-red-500 animate-pulse bg-red-500/10"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-gray-400 hover:text-white"
                   }`}
                   title={listening ? "Остановить запись" : "Голосовой поиск"}
                 >
@@ -128,109 +136,115 @@ export default function HomePage() {
                 </button>
               )}
             </div>
-            <Button type="submit" size="lg" className="h-12 px-6">
-              Найти
+            <Button type="submit" size="lg" className="h-12 px-6 bg-blue-800 hover:bg-blue-700">
+              <Search className="h-5 w-5" />
             </Button>
           </form>
+
+          {/* Quick nav icons — like Android bottom nav */}
+          <div className="w-full flex justify-around items-center mb-6">
+            {[
+              { href: "/search", icon: Search, label: "Поиск" },
+              { href: "/events", icon: CalendarDays, label: "События" },
+              { href: "/favorites", icon: Star, label: "Избранное" },
+              { href: "/stats", icon: BarChart3, label: "Статистика" },
+              { href: "/kinship", icon: Users, label: "Родство" },
+            ].map((item) => (
+              <Link key={item.href} href={item.href} prefetch={false} className="flex flex-col items-center gap-1 group">
+                <div className="h-11 w-11 rounded-full bg-gray-800 flex items-center justify-center group-hover:bg-gray-700 transition-colors">
+                  <item.icon className="h-5 w-5 text-gray-300 group-hover:text-white" />
+                </div>
+                <span className="text-[10px] text-gray-400 group-hover:text-white">{item.label}</span>
+              </Link>
+            ))}
+          </div>
         </motion.div>
       </section>
 
-      {/* Quick actions */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12">
-        {quickActions.map((action, i) => (
-          <AnimatedItem key={action.href} index={i}>
-            <Link href={action.href} prefetch={false}>
-              <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer group h-full card-press">
-                <CardContent className="flex flex-col items-center text-center gap-3 py-6">
-                  <div className="h-12 w-12 rounded-xl bg-muted glass-subtle flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <action.icon className={`h-6 w-6 ${action.color}`} />
-                  </div>
-                  <span className="text-sm font-medium">{action.label}</span>
-                </CardContent>
-              </Card>
-            </Link>
-          </AnimatedItem>
-        ))}
-      </section>
-
-      {/* Upcoming events */}
-      <section className="mb-12">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-responsive-title font-semibold">Ближайшие события</h2>
+      {/* Events section */}
+      <section className="px-4 pb-8 max-w-2xl mx-auto">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-white">Ближайшие события</h2>
           <Link href="/events" prefetch={false}>
-            <Button variant="ghost" size="sm" className="gap-1">
-              Все события
-              <ArrowRight className="h-4 w-4" />
+            <Button variant="ghost" size="sm" className="gap-1 text-gray-400 hover:text-white">
+              Все <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-14 w-14 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
+              <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-gray-900">
+                <Skeleton className="h-[70px] w-[70px] rounded-md bg-gray-700" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32 bg-gray-700" />
+                  <Skeleton className="h-3 w-20 bg-gray-700" />
                 </div>
               </div>
             ))}
           </div>
         ) : events.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <CalendarDays className="h-16 w-16 mx-auto mb-4 opacity-20" />
-              <p className="text-lg font-medium mb-1">Нет ближайших событий</p>
-              <p className="text-sm">Дни рождения и памятные даты появятся здесь</p>
-            </CardContent>
-          </Card>
+          <div className="py-12 text-center text-gray-500 bg-gray-900 rounded-lg">
+            <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">Нет ближайших событий</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="space-y-2">
             {events.map((event, i) => (
               <AnimatedItem key={`${event.id}-${event.eventType}-${i}`} index={i}>
                 <Link href={`/person?id=${event.id}`} prefetch={false}>
-                  <Card className="glass glass-hover hover:shadow-md transition-shadow cursor-pointer card-press">
-                    <CardContent className="flex items-center gap-4 py-4">
-                      <SafeImage
-                        src={mediaUrl(event.photo)}
-                        alt={`${event.lastName} ${event.firstName}`}
-                        loading="lazy"
-                        className="h-14 w-14 rounded-full object-cover bg-muted shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
+                  <div
+                    className="flex gap-2 p-1.5 cursor-pointer active:opacity-80"
+                    style={{ background: "linear-gradient(180deg, #aaccaa, #ddffdd)", border: "1px solid #88aa88", borderRadius: 6, marginBottom: 2 }}
+                  >
+                    <SafeImage
+                      src={mediaUrl(event.photo)}
+                      alt=""
+                      loading="lazy"
+                      className="h-[80px] w-[80px] rounded object-cover shrink-0"
+                    />
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between">
+                          <span className="font-bold" style={{ color: "#03AD03", fontSize: 13 }}>
+                            {eventTypeLabel(event.eventType).toUpperCase()}
+                          </span>
+                          <span className="font-bold shrink-0" style={{ color: "#03AD03", fontSize: 13 }}>
+                            {daysLabel(event.daysUntil)}
+                          </span>
+                        </div>
+                        <p className="font-bold text-black truncate" style={{ fontSize: 15 }}>
                           {event.lastName} {event.firstName}
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className={eventTypeColor(event.eventType)}>
-                            {eventTypeLabel(event.eventType)}
-                          </Badge>
-                          {event.yearsCount > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {event.yearsCount} лет
-                            </span>
+                        <div className="flex items-center gap-2" style={{ fontSize: 13 }}>
+                          <span className="text-black">{event.eventDate}</span>
+                          {event.deathDay && (
+                            <span className="font-bold" style={{ color: "#CC0000" }}>{event.deathDay}</span>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {event.daysUntil === 0 && (
-                          <span className="h-2 w-2 rounded-full bg-primary pulse-dot" />
+                        {event.yearsCount > 0 && (
+                          <p className="text-black" style={{ fontSize: 13 }}>
+                            {event.yearsCount} {event.yearsCount === 1 ? "год" : event.yearsCount < 5 ? "года" : "лет"}
+                          </p>
                         )}
-                        <Badge variant="outline">
-                          {daysLabel(event.daysUntil)}
-                        </Badge>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="flex justify-end">
+                        <span className="text-black font-bold" style={{ fontSize: 11 }}>#{event.id}</span>
+                      </div>
+                    </div>
+                  </div>
                 </Link>
               </AnimatedItem>
             ))}
           </div>
         )}
       </section>
+
+      {/* Date at bottom — like Android */}
+      <div className="text-center pb-6">
+        <p className="text-sm" style={{ color: "#FFF7AD" }}>{dateStr}</p>
+      </div>
     </div>
   );
 }
