@@ -45,11 +45,57 @@ import {
   getBounds,
 } from "@/lib/tree-layout";
 
+// ─── Age calculation ─────────────────────────────────────
+
+function parseDate(s: string): Date | null {
+  if (!s) return null;
+  const parts = s.split(".");
+  if (parts.length === 3) return new Date(+parts[2], +parts[1] - 1, +parts[0]);
+  if (parts.length === 1 && /^\d{4}$/.test(s)) return new Date(+s, 0, 1);
+  return null;
+}
+
+function calcAge(birthDay: string, deathDay: string, isAlive: boolean): string {
+  const birth = parseDate(birthDay);
+  if (!birth) return "";
+  const end = isAlive ? new Date() : parseDate(deathDay);
+  if (!end) return "";
+
+  let years = end.getFullYear() - birth.getFullYear();
+  let months = end.getMonth() - birth.getMonth();
+  let days = end.getDate() - birth.getDate();
+
+  if (days < 0) {
+    months--;
+    const prev = new Date(end.getFullYear(), end.getMonth(), 0);
+    days += prev.getDate();
+  }
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years}${yearSuffix(years)}`);
+  if (months > 0) parts.push(`${months}м`);
+  if (days > 0) parts.push(`${days}д`);
+  return parts.join(" ") || "0д";
+}
+
+function yearSuffix(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 19) return "л";
+  if (last >= 1 && last <= 4) return "г";
+  return "л";
+}
+
 // ─── Graph node component ────────────────────────────────
 
 function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
   const { node, x, y } = positioned;
   const router = useRouter();
+  const age = calcAge(node.birthDay, node.deathDay, node.isAlive);
 
   return (
     <>
@@ -58,7 +104,7 @@ function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
         tabIndex={0}
         onClick={() => router.push(`/person?id=${node.id}`)}
         onKeyDown={(e) => { if (e.key === "Enter") router.push(`/person?id=${node.id}`); }}
-        className="absolute flex flex-col items-center gap-1 group cursor-pointer"
+        className="absolute flex flex-col items-center gap-0.5 group cursor-pointer"
         style={{
           left: x,
           top: y,
@@ -74,11 +120,8 @@ function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
             node.isAlive ? "ring-emerald-400" : "ring-red-400"
           }`}
         />
-        <span className="text-[11px] font-medium leading-tight text-center max-w-[80px] truncate">
-          {node.firstName}
-        </span>
-        <span className="text-[10px] text-muted-foreground leading-tight text-center max-w-[80px] truncate">
-          {node.lastName}
+        <span className="text-[10px] font-medium leading-tight text-center whitespace-nowrap">
+          {node.lastName} {node.firstName} {age && <span className={node.isAlive ? "text-emerald-400" : "text-red-400"}>{age}</span>}
         </span>
       </div>
       {positioned.children.map((child) => (
@@ -407,6 +450,7 @@ function TreeNodeComponent({
 }) {
   const [expanded, setExpanded] = useState(depth < 3);
   const hasChildren = node.children.length > 0;
+  const age = calcAge(node.birthDay, node.deathDay, node.isAlive);
 
   return (
     <div className="ml-0" style={{ marginLeft: depth > 0 ? "1.5rem" : 0 }}>
@@ -440,7 +484,7 @@ function TreeNodeComponent({
             }`}
           />
           <span className="text-sm font-medium whitespace-nowrap">
-            {node.lastName} {node.firstName}
+            {node.lastName} {node.firstName}{age && <>{" "}<span className={`text-xs ${node.isAlive ? "text-emerald-400" : "text-red-400"}`}>{age}</span></>}
           </span>
           <span className="text-xs text-muted-foreground">#{node.id}</span>
         </Link>

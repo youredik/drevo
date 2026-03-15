@@ -20,6 +20,8 @@ import {
   Star,
   MessageSquare,
   List,
+  Play,
+  Pause,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,19 @@ function PersonContent() {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const [slideshowOn, setSlideshowOn] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("drevo-slideshow");
+    return saved === null ? true : saved === "on";
+  });
+
+  const toggleSlideshow = () => {
+    setSlideshowOn((prev) => {
+      const next = !prev;
+      localStorage.setItem("drevo-slideshow", next ? "on" : "off");
+      return next;
+    });
+  };
 
   useEffect(() => {
     setPhotoIndex(0);
@@ -102,6 +117,15 @@ function PersonContent() {
   }, [id, lightboxOpen, router]);
 
   const photos = data?.photos ?? [];
+
+  // Slideshow timer
+  useEffect(() => {
+    if (!slideshowOn || photos.length <= 1) return;
+    const interval = setInterval(() => {
+      setPhotoIndex((i) => (i + 1) % photos.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [slideshowOn, photos.length]);
 
   const nextPhoto = () => setPhotoIndex((i: number) => (i + 1) % photos.length);
   const prevPhoto = () => setPhotoIndex((i: number) => (i - 1 + photos.length) % photos.length);
@@ -159,9 +183,12 @@ function PersonContent() {
     return parseInt(match[1], 10) === now.getDate() && parseInt(match[2], 10) === (now.getMonth() + 1);
   })();
 
-  // Spouses split into left/right sides like Android layout
-  const leftSpouses = spouses.filter((_, i) => i % 2 === 0).slice(0, 2);
-  const rightSpouses = spouses.filter((_, i) => i % 2 === 1).slice(0, 2);
+  // Spouses positioned by DB order:
+  // 1st → right-bottom, 2nd → right-top, 3rd → left-top, 4th → left-bottom
+  const rightBottomSpouse = spouses[0] ?? null;  // pos 1
+  const rightTopSpouse = spouses[1] ?? null;     // pos 2
+  const leftTopSpouse = spouses[2] ?? null;      // pos 3
+  const leftBottomSpouse = spouses[3] ?? null;   // pos 4
 
   return (
     <div className="max-w-lg mx-auto px-0 sm:px-2 py-0 bg-black min-h-screen relative">
@@ -173,7 +200,7 @@ function PersonContent() {
         className="flex flex-col"
       >
         {/* === PARENTS — side by side at top === */}
-        <div className="grid grid-cols-2 gap-0">
+        <div className="grid grid-cols-2 gap-1">
           {/* Father */}
           <div className="relative">
             {father ? (
@@ -201,8 +228,9 @@ function PersonContent() {
                 </div>
               </Link>
             ) : (
-              <div className="aspect-square bg-gray-800 flex items-center justify-center">
-                <p className="text-white text-xs">Нет данных</p>
+              <div className="relative aspect-square bg-gray-800 flex flex-col items-center justify-center overflow-hidden">
+                <img src={mediaUrl("m.jpg")} alt="" className="w-full h-full object-cover opacity-60" />
+                <p className="absolute bottom-1 text-gray-400 text-xs">Нет данных</p>
               </div>
             )}
           </div>
@@ -233,34 +261,30 @@ function PersonContent() {
                 </div>
               </Link>
             ) : (
-              <div className="aspect-square bg-gray-800 flex items-center justify-center">
-                <p className="text-white text-xs">Нет данных</p>
+              <div className="relative aspect-square bg-gray-800 flex flex-col items-center justify-center overflow-hidden">
+                <img src={mediaUrl("w.jpg")} alt="" className="w-full h-full object-cover opacity-60" />
+                <p className="absolute bottom-1 text-gray-400 text-xs">Нет данных</p>
               </div>
             )}
           </div>
         </div>
 
         {/* === MAIN PHOTO with SPOUSES on sides and NAV ARROWS === */}
-        <div className="relative flex items-stretch">
-          {/* Left side: nav arrow + spouses */}
-          <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 80 }}>
-            {/* Left navigation arrow */}
-            <Link href={`/person?id=${id - 1}`} prefetch={false}
-              className="text-green-400 hover:text-green-300 mb-2">
-              <ChevronLeft className="h-10 w-10" strokeWidth={3} />
-            </Link>
-            {/* Left spouses */}
-            {leftSpouses.map((s) => (
-              <Link key={s.id} href={`/person?id=${s.id}`} prefetch={false}
-                className="flex flex-col items-center mb-2">
-                <div className="rounded-full overflow-hidden"
-                  style={{ width: 70, height: 70, border: "2px solid white" }}>
-                  <SafeImage src={mediaUrl(s.photo)} alt="" loading="lazy"
-                    className="h-full w-full object-cover" />
-                </div>
-                <span className="text-white text-[10px] text-center mt-0.5 leading-tight">{s.firstName}</span>
-              </Link>
-            ))}
+        <div className="relative flex items-stretch mt-1">
+          {/* Left arrow — centered on photo */}
+          <Link href={`/person?id=${id - 1}`} prefetch={false}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 text-green-400 hover:text-green-300">
+            <ChevronLeft className="h-10 w-10" strokeWidth={3} />
+          </Link>
+
+          {/* Left side: spouses (top=pos3, bottom=pos4) */}
+          <div className="flex flex-col items-center justify-between shrink-0 py-2" style={{ width: 80 }}>
+            <div className="flex flex-col items-center gap-1">
+              {leftTopSpouse && <SpouseCircle spouse={leftTopSpouse} />}
+            </div>
+            <div className="flex flex-col items-center">
+              {leftBottomSpouse && <SpouseCircle spouse={leftBottomSpouse} />}
+            </div>
           </div>
 
           {/* Center photo slider */}
@@ -298,58 +322,55 @@ function PersonContent() {
             )}
           </div>
 
-          {/* Right side: nav arrow + spouses */}
-          <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 80 }}>
-            {/* Right navigation arrow */}
-            <Link href={`/person?id=${id + 1}`} prefetch={false}
-              className="text-green-400 hover:text-green-300 mb-2">
-              <ChevronRight className="h-10 w-10" strokeWidth={3} />
-            </Link>
-            {/* Right spouses */}
-            {rightSpouses.map((s) => (
-              <Link key={s.id} href={`/person?id=${s.id}`} prefetch={false}
-                className="flex flex-col items-center mb-2">
-                <div className="rounded-full overflow-hidden"
-                  style={{ width: 70, height: 70, border: "2px solid white" }}>
-                  <SafeImage src={mediaUrl(s.photo)} alt="" loading="lazy"
-                    className="h-full w-full object-cover" />
-                </div>
-                <span className="text-white text-[10px] text-center mt-0.5 leading-tight">{s.firstName}</span>
-              </Link>
-            ))}
+          {/* Right side: spouses (top=pos2, bottom=pos1) */}
+          <div className="flex flex-col items-center justify-between shrink-0 py-2" style={{ width: 80 }}>
+            <div className="flex flex-col items-center gap-1">
+              {rightTopSpouse && <SpouseCircle spouse={rightTopSpouse} />}
+            </div>
+            <div className="flex flex-col items-center">
+              {rightBottomSpouse && <SpouseCircle spouse={rightBottomSpouse} />}
+            </div>
           </div>
+
+          {/* Right arrow — centered on photo */}
+          <Link href={`/person?id=${id + 1}`} prefetch={false}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 text-green-400 hover:text-green-300">
+            <ChevronRight className="h-10 w-10" strokeWidth={3} />
+          </Link>
         </div>
 
         {/* === PERSON NAME === */}
         <div className="text-center py-2 px-2" style={{ background: "rgba(32,32,32,0.5)" }}>
-          <p className="text-white text-sm font-serif">
+          <p className="text-white text-sm font-sans">
             {person.lastName} {person.firstName} {age || ""}
           </p>
         </div>
 
         {/* === CHILDREN — horizontal row === */}
         {children.length > 0 && (
-          <div className="flex justify-center gap-4 overflow-x-auto py-3 px-2 scrollbar-none">
-            {children.map((c) => (
-              <Link key={c.id} href={`/person?id=${c.id}`} prefetch={false}
-                className="flex flex-col items-center gap-1 shrink-0">
-                <div className="relative">
-                  <div className="rounded-full overflow-hidden"
-                    style={{ width: 60, height: 60, border: "2px solid white" }}>
-                    <SafeImage src={mediaUrl(c.photo)} alt="" loading="lazy"
-                      className="h-full w-full object-cover" />
-                  </div>
-                  {/* Child count badge like Android */}
-                  {c.childCount != null && c.childCount > 0 && (
-                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                      style={{ background: "#383838" }}>
-                      {c.childCount}
+          <div className="overflow-x-auto py-3 px-2 scrollbar-none">
+            <div className="flex gap-1 w-fit mx-auto">
+              {children.map((c) => (
+                <Link key={c.id} href={`/person?id=${c.id}`} prefetch={false}
+                  className="flex flex-col items-center gap-1 shrink-0">
+                  <div className="relative">
+                    <div className="rounded-full overflow-hidden"
+                      style={{ width: 60, height: 60, border: "2px solid white" }}>
+                      <SafeImage src={mediaUrl(c.photo)} alt="" loading="lazy"
+                        className="h-full w-full object-cover" />
                     </div>
-                  )}
-                </div>
-                <span className="text-white text-[11px] text-center leading-tight">{c.firstName}</span>
-              </Link>
-            ))}
+                    {/* Child count badge — bottom right like Android */}
+                    {c.childCount != null && c.childCount > 0 && (
+                      <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                        style={{ background: "#383838" }}>
+                        {c.childCount}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-white text-[11px] text-center leading-tight">{c.firstName}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 
@@ -375,11 +396,13 @@ function PersonContent() {
           {fabOpen && (
             <>
               {/* Pause/Play slideshow (dfabPause) */}
-              <FabItem idx={0} x={0} y={-60}
-                icon={<ChevronRight className="h-5 w-5 text-white" />}
-                onClick={() => { /* slideshow toggle placeholder */ setFabOpen(false); }}
-                label="Слайдшоу"
-              />
+              {photos.length > 1 && (
+                <FabItem idx={0} x={0} y={-60}
+                  icon={slideshowOn ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
+                  onClick={() => { toggleSlideshow(); setFabOpen(false); }}
+                  label={slideshowOn ? "Стоп" : "Слайдшоу"}
+                />
+              )}
               {/* Favorites (dfabFav) */}
               <FabItem idx={1} x={0} y={-120}
                 icon={<Star className={`h-5 w-5 ${isFav ? "fill-yellow-300 text-yellow-300" : "text-white"}`} />}
@@ -617,6 +640,20 @@ function PersonContent() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function SpouseCircle({ spouse }: { spouse: PersonBrief }) {
+  return (
+    <Link href={`/person?id=${spouse.id}`} prefetch={false}
+      className="flex flex-col items-center mb-1">
+      <div className="rounded-full overflow-hidden"
+        style={{ width: 70, height: 70, border: "2px solid white" }}>
+        <SafeImage src={mediaUrl(spouse.photo)} alt="" loading="lazy"
+          className="h-full w-full object-cover" />
+      </div>
+      <span className="text-white text-[10px] text-center mt-0.5 leading-tight">{spouse.firstName}</span>
+    </Link>
   );
 }
 

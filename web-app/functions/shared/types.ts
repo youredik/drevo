@@ -78,6 +78,8 @@ export interface TreeNode {
   sex: 0 | 1;
   isAlive: boolean;
   photo: string;
+  birthDay: string;
+  deathDay: string;
   children: TreeNode[];
 }
 

@@ -244,7 +244,7 @@ export class DataRepository {
             eventType: "birthday",
             eventDate: birthDM,
             yearsCount: ageNum >= 0 ? ageNum : 0,
-            daysUntil: daysUntil < 0 ? daysUntil + 365 : daysUntil,
+            daysUntil,
             photo: this.getDefaultPhoto(person),
           });
         }
@@ -275,7 +275,7 @@ export class DataRepository {
             eventType: "memorial",
             eventDate: deathDM,
             yearsCount: yearsSinceDeath,
-            daysUntil: daysUntil < 0 ? 0 : daysUntil,
+            daysUntil,
             photo: this.getDefaultPhoto(person),
           });
         }
@@ -305,7 +305,7 @@ export class DataRepository {
             eventType: "wedding",
             eventDate: marryDM,
             yearsCount: yearsSinceMarriage,
-            daysUntil: daysUntil < 0 ? 0 : daysUntil,
+            daysUntil,
             photo: this.getDefaultPhoto(person),
           });
         }
@@ -319,8 +319,9 @@ export class DataRepository {
   private daysUntilEvent(dayMonth: string, today: Date): number {
     const [day, month] = dayMonth.split(".").map(Number);
     const eventThisYear = new Date(today.getFullYear(), month - 1, day);
-    const diff = Math.floor(
-      (eventThisYear.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const diff = Math.round(
+      (eventThisYear.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24)
     );
     return diff;
   }
@@ -353,6 +354,8 @@ export class DataRepository {
       sex: person.sex,
       isAlive: isPersonAlive(person),
       photo: this.getDefaultPhoto(person),
+      birthDay: person.birthDay,
+      deathDay: person.deathDay,
       children,
     };
   }
@@ -379,6 +382,8 @@ export class DataRepository {
       sex: person.sex,
       isAlive: isPersonAlive(person),
       photo: this.getDefaultPhoto(person),
+      birthDay: person.birthDay,
+      deathDay: person.deathDay,
       children,
     };
   }

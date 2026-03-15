@@ -32,13 +32,34 @@ export function calculateAge(birthDay: string, deathDay: string): string {
   if (!end) return "";
 
   let years = end.getFullYear() - birth.getFullYear();
-  const monthDiff = end.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && end.getDate() < birth.getDate())) {
+  let months = end.getMonth() - birth.getMonth();
+  let days = end.getDate() - birth.getDate();
+
+  if (days < 0) {
+    months--;
+    const prev = new Date(end.getFullYear(), end.getMonth(), 0);
+    days += prev.getDate();
+  }
+  if (months < 0) {
     years--;
+    months += 12;
   }
 
   if (years < 0) return "";
-  return `${years} ${yearWord(years)}`;
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years}${yearSuffix(years)}`);
+  if (months > 0) parts.push(`${months}м`);
+  if (days > 0) parts.push(`${days}д`);
+  return parts.join(" ") || "0д";
+}
+
+function yearSuffix(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 19) return "л";
+  if (last >= 1 && last <= 4) return "г";
+  return "л";
 }
 
 export function calculateAgeNumber(birthDay: string, deathDay: string): number {
@@ -64,6 +85,23 @@ function yearWord(n: number): string {
   if (last === 1) return "год";
   if (last >= 2 && last <= 4) return "года";
   return "лет";
+}
+
+function monthWord(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 19) return "мес";
+  if (last === 1) return "мес";
+  return "мес";
+}
+
+function dayWord(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 19) return "дней";
+  if (last === 1) return "день";
+  if (last >= 2 && last <= 4) return "дня";
+  return "дней";
 }
 
 const ZODIAC_SIGNS = [
