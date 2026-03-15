@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -26,6 +26,14 @@ import { useVoiceSearch } from "@/hooks/use-voice-search";
 
 export default function HomePage() {
   const router = useRouter();
+
+  useEffect(() => {
+    const lastId = localStorage.getItem("drevo-last-person");
+    if (lastId) {
+      router.replace(`/person?id=${lastId}`);
+    }
+  }, [router]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const { listening, toggle: toggleVoice, supported: voiceSupported } = useVoiceSearch({
     onResult: useCallback((text: string) => {
@@ -57,6 +65,7 @@ export default function HomePage() {
   };
 
   const daysLabel = (days: number) => {
+    if (days < 0) return "Вчера";
     if (days === 0) return "Сегодня";
     if (days === 1) return "Завтра";
     return `Через ${days} дн.`;
@@ -207,10 +216,10 @@ export default function HomePage() {
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div>
                         <div className="flex items-start justify-between">
-                          <span className="font-bold" style={{ color: "#03AD03", fontSize: 13 }}>
+                          <span className="font-bold" style={{ color: event.eventType === "memorial" ? "#CC6600" : "#03AD03", fontSize: 13 }}>
                             {eventTypeLabel(event.eventType).toUpperCase()}
                           </span>
-                          <span className="font-bold shrink-0" style={{ color: "#03AD03", fontSize: 13 }}>
+                          <span className="font-bold shrink-0" style={{ color: event.daysUntil === 0 ? "#FF0000" : event.daysUntil === 1 ? "#2196F3" : "#03AD03", fontSize: 13 }}>
                             {daysLabel(event.daysUntil)}
                           </span>
                         </div>

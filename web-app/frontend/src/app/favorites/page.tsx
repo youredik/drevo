@@ -77,7 +77,7 @@ export default function FavoritesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5">
           {favorites.map((card, i) => {
             const p = card.person;
             const isAlive = !p.deathDay || p.deathDay.trim() === "";
@@ -89,27 +89,24 @@ export default function FavoritesPage() {
                     variant="ghost"
                     size="icon"
                     aria-label="Удалить из избранного"
-                    className="absolute top-2 right-2 z-10 h-7 w-7 bg-black/40 text-white hover:bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 z-10 h-6 w-6 bg-black/40 text-white hover:bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => { e.preventDefault(); removeFav(p.id); }}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3 w-3" />
                   </Button>
                   <Link href={`/person?id=${p.id}`} prefetch={false}>
-                    <CardContent className="flex flex-col items-center text-center gap-2 py-4">
+                    <CardContent className="flex flex-col items-center text-center gap-1 py-2 px-1">
                       <SafeImage
                         src={mediaUrl(photo)}
                         alt={`${p.lastName} ${p.firstName}`}
                         loading="lazy"
-                        className={`h-20 w-20 rounded-xl object-cover ring-2 ${isAlive ? "ring-emerald-400" : "ring-red-400"}`}
+                        className={`h-14 w-14 rounded-lg object-cover ring-2 ${isAlive ? "ring-emerald-400" : "ring-red-400"}`}
                       />
-                      <div>
-                        <p className="font-medium text-sm truncate">{p.lastName}</p>
-                        <p className="font-medium text-sm truncate">{p.firstName}</p>
-                      </div>
+                      <p className="font-medium text-xs truncate w-full">{p.lastName} {p.firstName}</p>
                       {card.age && (
-                        <Badge variant={isAlive ? "secondary" : "destructive"} className="text-xs">
+                        <span className={`text-[10px] ${isAlive ? "text-emerald-300" : "text-red-300"}`}>
                           {card.age}
-                        </Badge>
+                        </span>
                       )}
                     </CardContent>
                   </Link>

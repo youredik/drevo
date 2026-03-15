@@ -92,10 +92,11 @@ function yearSuffix(n: number): string {
 
 // ─── Graph node component ────────────────────────────────
 
-function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
+function GraphNodeCard({ positioned, treeType }: { positioned: PositionedNode; treeType: "ancestors" | "descendants" }) {
   const { node, x, y } = positioned;
   const router = useRouter();
   const age = calcAge(node.birthDay, node.deathDay, node.isAlive);
+  const nameLabel = treeType === "descendants" ? node.firstName : `${node.lastName} ${node.firstName}`;
 
   return (
     <>
@@ -116,16 +117,21 @@ function GraphNodeCard({ positioned }: { positioned: PositionedNode }) {
           src={mediaUrl(node.photo)}
           alt={node.firstName + ' ' + node.lastName}
           loading="lazy"
-          className={`h-12 w-12 rounded-full object-cover shrink-0 ring-2 transition-transform group-hover:scale-110 ${
+          className={`h-10 w-10 rounded-full object-cover shrink-0 ring-2 transition-transform group-hover:scale-110 ${
             node.isAlive ? "ring-emerald-400" : "ring-red-400"
           }`}
         />
-        <span className="text-[10px] font-medium leading-tight text-center whitespace-nowrap">
-          {node.lastName} {node.firstName} {age && <span className={node.isAlive ? "text-emerald-400" : "text-red-400"}>{age}</span>}
+        <span className="text-[9px] font-medium leading-tight text-center max-w-[60px] truncate">
+          {nameLabel}
         </span>
+        {age && (
+          <span className={`text-[8px] leading-tight text-center ${node.isAlive ? "text-emerald-300" : "text-red-300"}`}>
+            {age}
+          </span>
+        )}
       </div>
       {positioned.children.map((child) => (
-        <GraphNodeCard key={child.node.id} positioned={child} />
+        <GraphNodeCard key={child.node.id} positioned={child} treeType={treeType} />
       ))}
     </>
   );
@@ -398,7 +404,7 @@ function GraphView({
               width={canvasWidth}
               height={canvasHeight}
             />
-            <GraphNodeCard positioned={positioned} />
+            <GraphNodeCard positioned={positioned} treeType={treeType} />
           </div>
         </div>
       </div>
@@ -484,7 +490,7 @@ function TreeNodeComponent({
             }`}
           />
           <span className="text-sm font-medium whitespace-nowrap">
-            {node.lastName} {node.firstName}{age && <>{" "}<span className={`text-xs ${node.isAlive ? "text-emerald-400" : "text-red-400"}`}>{age}</span></>}
+            {node.lastName} {node.firstName}{age && <>{" "}<span className={`text-xs ${node.isAlive ? "text-emerald-300" : "text-red-300"}`}>{age}</span></>}
           </span>
           <span className="text-xs text-muted-foreground">#{node.id}</span>
         </Link>

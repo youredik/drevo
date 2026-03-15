@@ -28,14 +28,14 @@ export interface Edge {
 
 // ─── Layout constants ────────────────────────────────
 
-export const NODE_W = 80;
-export const NODE_H = 88;
+export const NODE_W = 60;
+export const NODE_H = 96;
 
-export const ANCESTOR_COL_GAP = 200;
-export const ANCESTOR_ROW_GAP = 100;
+export const ANCESTOR_COL_GAP = 100;
+export const ANCESTOR_ROW_GAP = 50;
 
-export const DESCENDANT_COL_GAP = 120;
-export const DESCENDANT_ROW_GAP = 140;
+export const DESCENDANT_COL_GAP = 10;
+export const DESCENDANT_ROW_GAP = 100;
 
 // ─── Layout helpers ──────────────────────────────────
 

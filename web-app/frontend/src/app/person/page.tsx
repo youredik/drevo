@@ -15,7 +15,6 @@ import {
   Pencil,
   Heart,
   X,
-  ZoomIn,
   Loader2,
   Star,
   MessageSquare,
@@ -51,7 +50,7 @@ function PersonContent() {
   const isFav = favData?.isFavorite ?? false;
   const [favLoading, setFavLoading] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const lightboxOpen = false;
   const [fabOpen, setFabOpen] = useState(false);
   const [slideshowOn, setSlideshowOn] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -74,9 +73,10 @@ function PersonContent() {
   useEffect(() => {
     if (data) {
       document.title = `${data.person.lastName} ${data.person.firstName} — Drevo`;
+      localStorage.setItem("drevo-last-person", String(id));
     }
     return () => { document.title = "Drevo — Семейное древо"; };
-  }, [data]);
+  }, [data, id]);
 
   const toggleFavorite = async () => {
     if (favLoading) return;
@@ -136,16 +136,6 @@ function PersonContent() {
     else if (info.offset.x > 50) prevPhoto();
   };
 
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightboxOpen(false);
-      if (e.key === "ArrowLeft") prevPhoto();
-      if (e.key === "ArrowRight") nextPhoto();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [lightboxOpen, photos.length]);
 
   if (loading) {
     return (
@@ -218,14 +208,14 @@ function PersonContent() {
                       {father.lastName} {father.firstName}
                     </p>
                   </div>
-                  {/* Child count badge */}
-                  {father.childCount != null && father.childCount > 0 && (
-                    <div className="absolute bottom-4 right-0 translate-x-1/2 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: "#383838" }}>
-                      {father.childCount}
-                    </div>
-                  )}
                 </div>
+                {/* Child count badge */}
+                {father.childCount != null && father.childCount > 0 && (
+                  <div className="absolute bottom-4 right-0 translate-x-1/2 z-10 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: "#383838" }}>
+                    {father.childCount}
+                  </div>
+                )}
               </Link>
             ) : (
               <div className="relative aspect-square bg-gray-800 flex flex-col items-center justify-center overflow-hidden">
@@ -252,13 +242,13 @@ function PersonContent() {
                       {mother.lastName} {mother.firstName}
                     </p>
                   </div>
-                  {mother.childCount != null && mother.childCount > 0 && (
-                    <div className="absolute bottom-4 left-0 -translate-x-1/2 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: "#383838" }}>
-                      {mother.childCount}
-                    </div>
-                  )}
                 </div>
+                {mother.childCount != null && mother.childCount > 0 && (
+                  <div className="absolute bottom-4 left-0 -translate-x-1/2 z-10 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: "#383838" }}>
+                    {mother.childCount}
+                  </div>
+                )}
               </Link>
             ) : (
               <div className="relative aspect-square bg-gray-800 flex flex-col items-center justify-center overflow-hidden">
@@ -290,23 +280,28 @@ function PersonContent() {
           {/* Center photo slider */}
           <div className="flex-1 relative">
             <div
-              className="aspect-square rounded-xl overflow-hidden bg-gray-900 cursor-pointer group"
-              onClick={() => setLightboxOpen(true)}
+              className="aspect-square rounded-xl overflow-hidden bg-gray-900 relative"
             >
-              <motion.div
-                key={photoIndex}
-                drag={photos.length > 1 ? "x" : false}
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.2}
-                onDragEnd={handleSwipeEnd}
-                className="w-full h-full"
-              >
-                <SafeImage
-                  src={mediaUrl(photos[photoIndex])}
-                  alt={`${person.lastName} ${person.firstName}`}
-                  className="w-full h-full object-cover pointer-events-none"
-                />
-              </motion.div>
+              <AnimatePresence mode="sync">
+                <motion.div
+                  key={photoIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8 }}
+                  drag={photos.length > 1 ? "x" : false}
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.2}
+                  onDragEnd={handleSwipeEnd}
+                  className="absolute inset-0"
+                >
+                  <SafeImage
+                    src={mediaUrl(photos[photoIndex])}
+                    alt={`${person.lastName} ${person.firstName}`}
+                    className="w-full h-full object-cover pointer-events-none"
+                  />
+                </motion.div>
+              </AnimatePresence>
             </div>
             {/* Dot pagination */}
             {photos.length > 1 && (
@@ -355,7 +350,7 @@ function PersonContent() {
                   className="flex flex-col items-center gap-1 shrink-0">
                   <div className="relative">
                     <div className="rounded-full overflow-hidden"
-                      style={{ width: 60, height: 60, border: "2px solid white" }}>
+                      style={{ width: 69, height: 69, border: "2px solid white" }}>
                       <SafeImage src={mediaUrl(c.photo)} alt="" loading="lazy"
                         className="h-full w-full object-cover" />
                     </div>
@@ -584,61 +579,6 @@ function PersonContent() {
         </div>
       </motion.div>
 
-      {/* Lightbox */}
-      <AnimatePresence>
-        {lightboxOpen && (
-          <motion.div
-            role="dialog"
-            aria-label="Просмотр фото"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
-            onClick={() => setLightboxOpen(false)}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Закрыть"
-              className="absolute top-4 right-4 text-white hover:bg-white/20 z-10"
-              onClick={() => setLightboxOpen(false)}
-            >
-              <X className="h-6 w-6" />
-            </Button>
-            {photos.length > 1 && (
-              <>
-                <Button variant="ghost" size="icon" aria-label="Предыдущее фото" className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); prevPhoto(); }}>
-                  <ChevronLeft className="h-8 w-8" />
-                </Button>
-                <Button variant="ghost" size="icon" aria-label="Следующее фото" className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); nextPhoto(); }}>
-                  <ChevronRight className="h-8 w-8" />
-                </Button>
-              </>
-            )}
-            <motion.div
-              key={photoIndex}
-              drag={photos.length > 1 ? "x" : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.2}
-              onDragEnd={handleSwipeEnd}
-              onClick={(e) => e.stopPropagation()}
-              className="max-h-[90vh] max-w-[90vw]"
-            >
-              <motion.img
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                src={mediaUrl(photos[photoIndex])}
-                alt={person.lastName + ' ' + person.firstName}
-                className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg pointer-events-none"
-              />
-            </motion.div>
-            <span className="absolute bottom-4 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
-              {photoIndex + 1} / {photos.length}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

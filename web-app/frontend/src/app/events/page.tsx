@@ -70,7 +70,8 @@ export default function EventsPage() {
   };
 
   const daysLabel = (d: number) => {
-    if (d <= 0) return "Сегодня";
+    if (d < 0) return "Вчера";
+    if (d === 0) return "Сегодня";
     if (d === 1) return "Завтра";
     return `Через ${d} дн.`;
   };
@@ -133,10 +134,10 @@ export default function EventsPage() {
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div>
             <div className="flex items-start justify-between">
-              <span className="font-bold" style={{ color: "#03AD03", fontSize: 15 }}>
+              <span className="font-bold" style={{ color: event.eventType === "memorial" ? "#CC6600" : "#03AD03", fontSize: 15 }}>
                 {eventTypeLabel(event.eventType).toUpperCase()}
               </span>
-              <span className="font-bold shrink-0" style={{ color: "#03AD03", fontSize: 15 }}>
+              <span className="font-bold shrink-0" style={{ color: event.daysUntil === 0 ? "#FF0000" : event.daysUntil === 1 ? "#2196F3" : "#03AD03", fontSize: 15 }}>
                 {daysLabel(event.daysUntil)}
               </span>
             </div>
