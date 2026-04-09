@@ -63,6 +63,8 @@ function PersonEditor() {
   const [motherId, setMotherId] = useState<number | undefined>();
   const [spouses, setSpouses] = useState<PersonBrief[]>([]);
   const [children, setChildren] = useState<PersonBrief[]>([]);
+  const [spousesText, setSpousesText] = useState("");
+  const [childrenText, setChildrenText] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [bio, setBio] = useState("");
   const [bioLoaded, setBioLoaded] = useState(false);
@@ -106,6 +108,8 @@ function PersonEditor() {
       setMotherId(d.mother?.id || undefined);
       setSpouses(d.spouses || []);
       setChildren(d.children || []);
+      setSpousesText((d.spouses || []).map((s) => s.id).join(" "));
+      setChildrenText((d.children || []).map((c) => c.id).join(" "));
       setPhotos(d.photos || []);
       if (d.hasBio) {
         api.getBio(id).then((b) => { setBio(b.text); setBioLoaded(true); }).catch(() => setBioLoaded(true));
@@ -153,11 +157,38 @@ function PersonEditor() {
         orderBySpouse: Number(form.orderBySpouse),
       });
 
+      // Backup before relationship changes
+      await api.backup();
+
       // Update parents if changed
       const oldFather = data?.father?.id || 0;
       const oldMother = data?.mother?.id || 0;
       if ((fatherId || 0) !== oldFather || (motherId || 0) !== oldMother) {
         await api.setParents(id, fatherId || 0, motherId || 0);
+      }
+
+      // Sync spouses: compare old IDs with new IDs from text field
+      const oldSpouseIds = (data?.spouses || []).map((s) => s.id);
+      const newSpouseIds = spousesText.trim()
+        ? spousesText.trim().split(/\s+/).map(Number).filter((n) => n > 0)
+        : [];
+      for (const sid of oldSpouseIds) {
+        if (!newSpouseIds.includes(sid)) await api.removeSpouse(id, sid);
+      }
+      for (const sid of newSpouseIds) {
+        if (!oldSpouseIds.includes(sid)) await api.addSpouse(id, sid);
+      }
+
+      // Sync children: compare old IDs with new IDs from text field
+      const oldChildIds = (data?.children || []).map((c) => c.id);
+      const newChildIds = childrenText.trim()
+        ? childrenText.trim().split(/\s+/).map(Number).filter((n) => n > 0)
+        : [];
+      for (const cid of oldChildIds) {
+        if (!newChildIds.includes(cid)) await api.removeChild(id, cid);
+      }
+      for (const cid of newChildIds) {
+        if (!oldChildIds.includes(cid)) await api.addChild(id, cid);
       }
 
       toast.success("Сохранено!");
@@ -167,6 +198,8 @@ function PersonEditor() {
       setData(d);
       setSpouses(d.spouses || []);
       setChildren(d.children || []);
+      setSpousesText((d.spouses || []).map((s) => s.id).join(" "));
+      setChildrenText((d.children || []).map((c) => c.id).join(" "));
       setPhotos(d.photos || []);
     } catch (e: any) {
       toast.error(e.message || "Ошибка");
@@ -350,7 +383,7 @@ function PersonEditor() {
         <TabsContent value="info" className="mt-4">
           <Card className="glass">
             <CardContent className="pt-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-4">
                 <div>
                   <Label htmlFor="field-lastName">Фамилия</Label>
                   <Input id="field-lastName" value={form.lastName} onChange={(e) => updateForm({ lastName: e.target.value })} />
@@ -359,28 +392,28 @@ function PersonEditor() {
                   <Label htmlFor="field-firstName">Имя</Label>
                   <Input id="field-firstName" value={form.firstName} onChange={(e) => updateForm({ firstName: e.target.value })} />
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="field-sex">Пол</Label>
-                <Select value={form.sex} onValueChange={(v) => updateForm({ sex: v })}>
-                  <SelectTrigger id="field-sex"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Мужской</SelectItem>
-                    <SelectItem value="0">Женский</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="field-birthDay">Дата рождения (ДД.ММ.ГГГГ)</Label>
-                  <Input id="field-birthDay" value={form.birthDay} onChange={(e) => updateForm({ birthDay: e.target.value })} placeholder="01.01.1990" />
+                  <Label htmlFor="field-sex">Пол</Label>
+                  <Select value={form.sex} onValueChange={(v) => updateForm({ sex: v })}>
+                    <SelectTrigger id="field-sex" className="w-[110px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Мужской</SelectItem>
+                      <SelectItem value="0">Женский</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-[140px_1fr] gap-4">
+                <div>
+                  <Label htmlFor="field-birthDay">Дата рождения</Label>
+                  <Input id="field-birthDay" value={form.birthDay} onChange={(e) => updateForm({ birthDay: e.target.value })} placeholder="ДД.ММ.ГГГГ" />
                 </div>
                 <div>
                   <Label htmlFor="field-birthPlace">Место рождения</Label>
                   <Input id="field-birthPlace" value={form.birthPlace} onChange={(e) => updateForm({ birthPlace: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-[140px_1fr] gap-4">
                 <div>
                   <Label htmlFor="field-deathDay">Дата кончины</Label>
                   <Input id="field-deathDay" value={form.deathDay} onChange={(e) => updateForm({ deathDay: e.target.value })} placeholder="Пусто = жив" />
@@ -394,22 +427,44 @@ function PersonEditor() {
                 <Label htmlFor="field-address">Адрес</Label>
                 <Input id="field-address" value={form.address} onChange={(e) => updateForm({ address: e.target.value })} />
               </div>
-              <div>
-                <Label htmlFor="field-marryDay">Дата свадьбы</Label>
-                <Input id="field-marryDay" value={form.marryDay} onChange={(e) => updateForm({ marryDay: e.target.value })} placeholder="ДД.ММ.ГГГГ" />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 <div>
-                  <Label htmlFor="field-orderByDad">Порядок (отец)</Label>
-                  <Input id="field-orderByDad" type="number" value={form.orderByDad} onChange={(e) => updateForm({ orderByDad: e.target.value })} />
+                  <Label>Папа</Label>
+                  <Input
+                    inputMode="numeric"
+                    value={fatherId || ""}
+                    onChange={(e) => { setFatherId(e.target.value ? Number(e.target.value) : undefined); setDirty(true); }}
+                    placeholder="0"
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="field-orderByMom">Порядок (мать)</Label>
-                  <Input id="field-orderByMom" type="number" value={form.orderByMom} onChange={(e) => updateForm({ orderByMom: e.target.value })} />
+                  <Label>Мама</Label>
+                  <Input
+                    inputMode="numeric"
+                    value={motherId || ""}
+                    onChange={(e) => { setMotherId(e.target.value ? Number(e.target.value) : undefined); setDirty(true); }}
+                    placeholder="0"
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="field-orderBySpouse">Порядок (супруг)</Label>
-                  <Input id="field-orderBySpouse" type="number" value={form.orderBySpouse} onChange={(e) => updateForm({ orderBySpouse: e.target.value })} />
+                  <Label>Супруги</Label>
+                  <Input
+                    value={spousesText}
+                    onChange={(e) => { setSpousesText(e.target.value); setDirty(true); }}
+                    placeholder="424 11"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="field-marryDay">Свадьба</Label>
+                  <Input id="field-marryDay" value={form.marryDay} onChange={(e) => updateForm({ marryDay: e.target.value })} placeholder="ДД.ММ.ГГГГ" />
+                </div>
+                <div>
+                  <Label>Дети</Label>
+                  <Input
+                    value={childrenText}
+                    onChange={(e) => { setChildrenText(e.target.value); setDirty(true); }}
+                    placeholder="395 396"
+                  />
                 </div>
               </div>
               <div className="flex justify-end pt-4">

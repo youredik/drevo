@@ -235,7 +235,7 @@ function SearchContent() {
           {filteredResults.map((r, i) => (
               <AnimatedItem key={r.id} index={i}>
                 <Link href={`/person?id=${r.id}`} prefetch={false}>
-                  <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow cursor-pointer rounded-lg">
+                  <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow cursor-pointer rounded-lg py-0">
                     <CardContent className="flex gap-3 p-2" style={{ background: "linear-gradient(180deg, #bbbbdd, #ddddff)", backgroundColor: "#84FFFF" }}>
                       <SafeImage
                         src={mediaUrl(r.photo)}
@@ -244,18 +244,20 @@ function SearchContent() {
                         className="h-[90px] w-[90px] rounded-md object-cover shrink-0"
                       />
                       <div className="flex-1 min-w-0 py-1">
-                        <p className="font-bold text-black font-serif truncate">
-                          {r.lastName} {r.firstName} <span className="font-normal">#{r.id}</span>
-                        </p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-bold text-black font-serif truncate">
+                            {r.lastName} {r.firstName}
+                          </p>
+                          <span className="text-xs font-bold shrink-0" style={{ color: "#011CC7" }}>{i + 1}</span>
+                        </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           {r.birthDay && <span className="text-sm font-serif" style={{ color: "#004400" }}>{r.birthDay}</span>}
                           {r.deathDay && <span className="text-sm font-serif" style={{ color: "#CC0000" }}>{r.deathDay}</span>}
                         </div>
                         {r.address && <p className="font-bold text-black font-serif mt-0.5 truncate" style={{ fontSize: "12px" }}>{r.address}</p>}
-                        {r.age && <p className="text-sm mt-0.5">{r.age}</p>}
-                        <div className="flex justify-between mt-1">
-                          <span className="text-xs font-bold" style={{ color: "#011CC7" }}>{i + 1}</span>
-                          <span className="text-xs text-black">#{r.id}</span>
+                        <div className="flex items-center justify-between mt-0.5 gap-2">
+                          {r.age ? <span className="text-sm">{r.age}</span> : <span />}
+                          <span className="text-xs text-black shrink-0">#{r.id}</span>
                         </div>
                       </div>
                     </CardContent>

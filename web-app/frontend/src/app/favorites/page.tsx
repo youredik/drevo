@@ -18,10 +18,12 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     api.getFavorites()
-      .then((data) => setFavorites(data.favorites))
-      .catch((e) => toast.error(e.message || "Ошибка загрузки"))
-      .finally(() => setLoading(false));
+      .then((data) => { if (!cancelled) setFavorites(data.favorites); })
+      .catch((e) => { if (!cancelled) toast.error(e.message || "Ошибка загрузки"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const removeFav = async (personId: number) => {

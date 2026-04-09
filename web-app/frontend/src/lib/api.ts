@@ -80,6 +80,8 @@ export interface TreeNode {
   sex: 0 | 1;
   isAlive: boolean;
   photo: string;
+  birthDay: string;
+  deathDay: string;
   children: TreeNode[];
 }
 
@@ -286,7 +288,19 @@ export const api = {
 
   getMe: () => request<{ user: { id: string; login: string; role: string } }>("/api/auth/me"),
 
-  // ─── Admin: Persons ──────────────────────────────────
+  // ─── Admin: Backup & Persons ─────────────────────────
+
+  backup: () =>
+    request<{ ok: boolean; path: string }>("/api/admin/backup", { method: "POST" }),
+
+  getBackups: () =>
+    request<{ backups: { name: string; size: number; date: string }[] }>("/api/admin/backups"),
+
+  restoreBackup: (name: string) =>
+    request<{ ok: boolean; count: number }>("/api/admin/restore", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
 
   createPerson: (data: PersonFormData) =>
     request<{ person: Person }>("/api/admin/persons", {

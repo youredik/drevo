@@ -35,11 +35,17 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useEvents } from "@/lib/swr";
 
-const navItems = [
+function getTreeHref() {
+  if (typeof window === "undefined") return "/tree";
+  const lastId = localStorage.getItem("drevo-last-person");
+  return lastId ? `/tree?id=${lastId}` : "/tree";
+}
+
+const staticNavItems = [
   { href: "/", label: "Главная", icon: TreePine },
   { href: "/search", label: "Поиск", icon: Search },
   { href: "/events", label: "События", icon: CalendarDays },
-  { href: "/tree", label: "Древо", icon: GitFork },
+  { href: "/tree", label: "Древо", icon: GitFork, dynamic: true },
   { href: "/favorites", label: "Избранное", icon: Heart },
   { href: "/stats", label: "Статистика", icon: BarChart3 },
 ];
@@ -51,6 +57,9 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const { data: eventsData } = useEvents(user ? 3 : null, true);
   const todayCount = eventsData?.events.filter((e) => e.daysUntil === 0).length ?? 0;
+  const navItems = staticNavItems.map((item) =>
+    item.dynamic ? { ...item, href: getTreeHref() } : item
+  );
 
   // Hide navbar on login page
   if (pathname === "/login") return null;

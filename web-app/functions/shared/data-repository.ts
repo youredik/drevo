@@ -23,6 +23,12 @@ import {
   isFullDate,
 } from "./utils.js";
 
+/** Return current time interpreted as UTC+3 (Moscow). */
+function nowMoscow(): Date {
+  const utc = new Date();
+  return new Date(utc.getTime() + 3 * 60 * 60 * 1000);
+}
+
 export class DataRepository {
   private persons: Map<number, Person>;
   private favorites: number[];
@@ -158,58 +164,55 @@ export class DataRepository {
     const q = normalizeSearchQuery(query);
     if (q.length === 0) return [];
 
+    // Split into whitespace-separated tokens — every token must match
+    // somewhere in the person's searchable fields. Allows queries like
+    // "иванов сергей" or "сергей казань".
+    const tokens = q.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return [];
+
     const results: SearchResult[] = [];
 
     for (const person of this.persons.values()) {
+      // Field-by-field lowercase strings, in priority order for matchField.
+      const fields: { field: string; text: string }[] = [
+        { field: "name", text: getPersonFullName(person).toLowerCase() },
+        { field: "address", text: person.address.toLowerCase() },
+        { field: "birthPlace", text: person.birthPlace.toLowerCase() },
+        { field: "birthDay", text: person.birthDay.toLowerCase() },
+        { field: "deathDay", text: person.deathDay.toLowerCase() },
+        { field: "marryDay", text: person.marryDay.toLowerCase() },
+      ];
+      const haystack = fields.map((f) => f.text).join(" ");
+
+      // Special: a single-token query that matches the person ID exactly.
       let matchField = "";
-
-      // ID match
-      if (q === String(person.id)) {
+      if (tokens.length === 1 && tokens[0] === String(person.id)) {
         matchField = "id";
-      }
-      // Name match
-      else if (
-        person.firstName.toLowerCase().includes(q) ||
-        person.lastName.toLowerCase().includes(q) ||
-        getPersonFullName(person).toLowerCase().includes(q)
-      ) {
-        matchField = "name";
-      }
-      // Address match
-      else if (person.address.toLowerCase().includes(q)) {
-        matchField = "address";
-      }
-      // Birth place match
-      else if (person.birthPlace.toLowerCase().includes(q)) {
-        matchField = "birthPlace";
-      }
-      // Birth date match
-      else if (person.birthDay.toLowerCase().includes(q)) {
-        matchField = "birthDay";
-      }
-      // Death date match
-      else if (person.deathDay.toLowerCase().includes(q)) {
-        matchField = "deathDay";
-      }
-      // Marriage date match
-      else if (person.marryDay.toLowerCase().includes(q)) {
-        matchField = "marryDay";
+      } else {
+        // Every token must appear somewhere in the combined haystack.
+        if (!tokens.every((t) => haystack.includes(t))) continue;
+        // Pick the first field (by priority) that contains any token.
+        for (const f of fields) {
+          if (tokens.some((t) => f.text.includes(t))) {
+            matchField = f.field;
+            break;
+          }
+        }
+        if (!matchField) matchField = "name";
       }
 
-      if (matchField) {
-        results.push({
-          id: person.id,
-          firstName: person.firstName,
-          lastName: person.lastName,
-          sex: person.sex,
-          birthDay: person.birthDay,
-          deathDay: person.deathDay,
-          address: person.address,
-          age: calculateAge(person.birthDay, person.deathDay),
-          photo: this.getDefaultPhoto(person),
-          matchField,
-        });
-      }
+      results.push({
+        id: person.id,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        sex: person.sex,
+        birthDay: person.birthDay,
+        deathDay: person.deathDay,
+        address: person.address,
+        age: calculateAge(person.birthDay, person.deathDay),
+        photo: this.getDefaultPhoto(person),
+        matchField,
+      });
     }
 
     return results;
@@ -218,7 +221,7 @@ export class DataRepository {
   // ─── Events ─────────────────────────────────────────
 
   getEvents(days: number = 5, includeYesterday: boolean = true): EventItem[] {
-    const today = new Date();
+    const today = nowMoscow();
     const events: EventItem[] = [];
 
     for (const person of this.persons.values()) {
@@ -228,10 +231,9 @@ export class DataRepository {
         const daysUntil = this.daysUntilEvent(birthDM, today);
         const inRange =
           (daysUntil >= 0 && daysUntil <= days) ||
-          (includeYesterday && daysUntil === -1) ||
-          (daysUntil > 350 && includeYesterday); // yesterday wrapping
+          (includeYesterday && daysUntil === -1);
 
-        if (inRange || (includeYesterday && this.isYesterday(birthDM, today))) {
+        if (inRange) {
           const ageNum = calculateAgeNumber(person.birthDay, "");
           events.push({
             id: person.id,
@@ -258,12 +260,7 @@ export class DataRepository {
           (daysUntil >= 0 && daysUntil <= days) ||
           (includeYesterday && this.isYesterday(deathDM, today))
         ) {
-          const deathDate = new Date(
-            today.getFullYear(),
-            parseInt(deathDM.split(".")[1]) - 1,
-            parseInt(deathDM.split(".")[0])
-          );
-          const yearsSinceDeath = today.getFullYear() - (new Date(person.deathDay.split(".").reverse().join("-"))).getFullYear();
+          const yearsSinceDeath = today.getUTCFullYear() - (new Date(person.deathDay.split(".").reverse().join("-"))).getFullYear();
           events.push({
             id: person.id,
             firstName: person.firstName,
@@ -285,15 +282,13 @@ export class DataRepository {
       const marryDM = getDayMonth(person.marryDay);
       if (marryDM && person.spouseIds.length > 0) {
         const daysUntil = this.daysUntilEvent(marryDM, today);
-        // Avoid duplicate: only count for the person with lower ID
-        const minSpouseId = Math.min(...person.spouseIds);
+        // Show wedding event for BOTH spouses (not just the one with lower ID).
         if (
-          person.id < minSpouseId &&
-          ((daysUntil >= 0 && daysUntil <= days) ||
-            (includeYesterday && this.isYesterday(marryDM, today)))
+          (daysUntil >= 0 && daysUntil <= days) ||
+          (includeYesterday && this.isYesterday(marryDM, today))
         ) {
           const marryDate = person.marryDay.split(".").reverse().join("-");
-          const yearsSinceMarriage = today.getFullYear() - new Date(marryDate).getFullYear();
+          const yearsSinceMarriage = today.getUTCFullYear() - new Date(marryDate).getFullYear();
           events.push({
             id: person.id,
             firstName: person.firstName,
@@ -318,11 +313,14 @@ export class DataRepository {
 
   private daysUntilEvent(dayMonth: string, today: Date): number {
     const [day, month] = dayMonth.split(".").map(Number);
-    const eventThisYear = new Date(today.getFullYear(), month - 1, day);
-    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const diff = Math.round(
-      (eventThisYear.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const todayTs = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    const eventTs = Date.UTC(today.getUTCFullYear(), month - 1, day);
+    const diff = Math.round((eventTs - todayTs) / (1000 * 60 * 60 * 24));
+    // Keep -1 (yesterday); wrap anything further in the past to next year
+    if (diff < -1) {
+      const nextYearTs = Date.UTC(today.getUTCFullYear() + 1, month - 1, day);
+      return Math.round((nextYearTs - todayTs) / (1000 * 60 * 60 * 24));
+    }
     return diff;
   }
 
@@ -429,7 +427,11 @@ export class DataRepository {
       commonAncestor: commonPerson ? this.toBrief(commonPerson) : null,
       pathFromPerson1: pathFrom1,
       pathFromPerson2: pathFrom2,
-      relationship: this.describeRelationship(pathFrom1.length, pathFrom2.length),
+      relationship: id1 === id2
+        ? "Один и тот же человек"
+        : !commonAncestorId
+          ? "Кровного родства нет"
+          : this.describeRelationship(pathFrom1.length, pathFrom2.length),
     };
   }
 
@@ -681,8 +683,8 @@ export class DataRepository {
   // ─── Today's events for a person ────────────────────
 
   getPersonTodayEvents(person: Person): { birthday: boolean; memorial: boolean; wedding: boolean } {
-    const today = new Date();
-    const todayDM = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}`;
+    const today = nowMoscow();
+    const todayDM = `${String(today.getUTCDate()).padStart(2, "0")}.${String(today.getUTCMonth() + 1).padStart(2, "0")}`;
 
     return {
       birthday: getDayMonth(person.birthDay) === todayDM,
@@ -692,6 +694,11 @@ export class DataRepository {
   }
 
   // ─── Mutations (update in-memory cache) ───────────────
+
+  /** Replace the entire dataset (used for CSV import). Preserves favorites. */
+  replaceAll(persons: Map<number, Person>): void {
+    this.persons = persons;
+  }
 
   getNextId(): number {
     let maxId = 0;
@@ -895,7 +902,8 @@ export class DataRepository {
     for (const p of sorted) {
       lines.push([
         p.id, p.sex, p.lastName, p.firstName, p.fatherId || "", p.motherId || "",
-        p.birthPlace, p.birthDay, p.deathPlace, p.deathDay, p.address,
+        // Match Android app column order: address, birthDay, birthPlace, deathDay, deathPlace
+        p.address, p.birthDay, p.birthPlace, p.deathDay, p.deathPlace,
         p.spouseIds.join(" "), p.childrenIds.join(" "),
         p.orderByDad, p.orderByMom, p.orderBySpouse, p.marryDay,
       ].join(";"));

@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, PersonCard } from "@/lib/api";
 import { PersonSearchSelect } from "@/components/person-search-select";
 import { SafeImage } from "@/components/safe-image";
+import { getRecentPersons } from "@/lib/recent-persons";
+import { Clock, Heart } from "lucide-react";
 
 export default function KinshipPage() {
   return <Suspense><KinshipContent /></Suspense>;
@@ -26,6 +28,28 @@ function KinshipContent() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Quick-pick sources for the second person
+  const [recent, setRecent] = useState<PersonCard[]>([]);
+  const [favorites, setFavorites] = useState<PersonCard[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Load favorites
+    api.getFavorites()
+      .then((data) => { if (!cancelled) setFavorites(data.favorites); })
+      .catch(() => { /* ignore */ });
+    // Load recent persons
+    const ids = getRecentPersons();
+    if (ids.length > 0) {
+      Promise.all(ids.map((id) => api.getPerson(id).catch(() => null)))
+        .then((cards) => {
+          if (cancelled) return;
+          setRecent(cards.filter((c): c is PersonCard => c !== null));
+        });
+    }
+    return () => { cancelled = true; };
+  }, []);
 
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +115,30 @@ function KinshipContent() {
 
       {error && (
         <div className="text-destructive text-sm mb-4 p-3 bg-destructive/10 rounded-lg">{error}</div>
+      )}
+
+      {/* Quick-pick: choose the second person from recent or favorites */}
+      {personId1 && !result && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <QuickPickPanel
+            title="Из истории просмотров"
+            icon={<Clock className="h-4 w-4" />}
+            items={recent}
+            excludeId={personId1}
+            selectedId={personId2}
+            onPick={setPersonId2}
+            emptyText="История пуста — откройте кого-нибудь из людей."
+          />
+          <QuickPickPanel
+            title="Из избранного"
+            icon={<Heart className="h-4 w-4 text-red-500" />}
+            items={favorites}
+            excludeId={personId1}
+            selectedId={personId2}
+            onPick={setPersonId2}
+            emptyText="Избранное пусто — добавьте людей на их страницах."
+          />
+        </div>
       )}
 
       {loading && (
@@ -197,5 +245,81 @@ function PersonChip({ person, small = false }: { person: any; small?: boolean })
         )}
       </div>
     </Link>
+  );
+}
+
+function QuickPickPanel({
+  title,
+  icon,
+  items,
+  excludeId,
+  selectedId,
+  onPick,
+  emptyText,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: PersonCard[];
+  excludeId?: number;
+  selectedId?: number;
+  onPick: (id: number) => void;
+  emptyText: string;
+}) {
+  const filtered = items.filter((c) => c.person.id !== excludeId);
+  return (
+    <Card className="glass">
+      <CardHeader className="py-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          {icon}
+          {title}
+          {filtered.length > 0 && (
+            <span className="text-xs text-muted-foreground font-normal">
+              ({filtered.length})
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {filtered.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-4 text-center">{emptyText}</p>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-72 overflow-y-auto pr-1">
+            {filtered.map((card) => {
+              const p = card.person;
+              const isAlive = !p.deathDay || p.deathDay.trim() === "";
+              const photo = card.photos?.[0] || (p.sex === 1 ? "m.jpg" : "w.jpg");
+              const isSelected = selectedId === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onPick(p.id)}
+                  className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-colors card-press ${
+                    isSelected
+                      ? "border-primary bg-primary/10"
+                      : "border-border/50 hover:bg-muted/50"
+                  }`}
+                >
+                  <SafeImage
+                    src={mediaUrl(photo)}
+                    alt=""
+                    loading="lazy"
+                    className={`h-12 w-12 rounded-full object-cover ring-2 ${
+                      isAlive ? "ring-emerald-400" : "ring-red-400"
+                    }`}
+                  />
+                  <span className="text-[10px] font-medium leading-tight text-center max-w-full truncate w-full">
+                    {p.firstName}
+                  </span>
+                  <span className="text-[9px] leading-tight text-muted-foreground truncate w-full text-center">
+                    {p.lastName}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

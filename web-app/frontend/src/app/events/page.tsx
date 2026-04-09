@@ -20,6 +20,24 @@ const MONTH_NAMES = [
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
+function pluralYears(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 14) return "лет";
+  if (last === 1) return "год";
+  if (last >= 2 && last <= 4) return "года";
+  return "лет";
+}
+
+function pluralDays(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 14) return "дней";
+  if (last === 1) return "день";
+  if (last >= 2 && last <= 4) return "дня";
+  return "дней";
+}
+
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -32,7 +50,7 @@ function getCalendarDays(year: number, month: number) {
 }
 
 export default function EventsPage() {
-  const [days, setDays] = useState(7);
+  const [days, setDays] = useState(2);
   const [typeFilter, setTypeFilter] = useState<"all" | "birthday" | "memorial" | "wedding">("all");
 
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -40,7 +58,7 @@ export default function EventsPage() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const { data: listData, isLoading: loading } = useEvents(days, true);
-  const { data: calendarData } = useEvents(viewMode === "calendar" ? 365 : null, false);
+  const { data: calendarData } = useEvents(viewMode === "calendar" ? 365 : null, true);
 
   const rawEvents = listData?.events ?? [];
   const events = typeFilter === "all" ? rawEvents : rawEvents.filter((e) => e.eventType === typeFilter);
@@ -119,7 +137,16 @@ export default function EventsPage() {
     setCalendarDate(new Date(calendarYear, calendarMonth + 1, 1));
   };
 
-  const renderEventCard = (event: EventItem, i: number) => (
+  const renderEventCard = (event: EventItem, i: number) => {
+    const fullEventDate =
+      event.eventType === "birthday"
+        ? event.birthDay
+        : event.eventType === "memorial"
+          ? event.deathDay
+          : event.eventType === "wedding"
+            ? event.marryDay
+            : "";
+    return (
     <Link key={`${event.id}-${event.eventType}-${i}`} href={`/person?id=${event.id}`} prefetch={false} className="block">
       <div
         className="flex gap-2 p-1.5 cursor-pointer active:opacity-80"
@@ -145,14 +172,14 @@ export default function EventsPage() {
               {event.lastName} {event.firstName}
             </p>
             <div className="flex items-center gap-2" style={{ fontSize: 15 }}>
-              <span className="text-black">{event.eventDate}</span>
-              {event.deathDay && (
+              <span className="text-black">{fullEventDate || event.eventDate}</span>
+              {event.eventType !== "memorial" && event.deathDay && (
                 <span className="font-bold" style={{ color: "#CC0000" }}>{event.deathDay}</span>
               )}
             </div>
             {event.yearsCount > 0 && (
               <p className="text-black" style={{ fontSize: 15 }}>
-                {event.yearsCount} {event.yearsCount === 1 ? "год" : event.yearsCount < 5 ? "года" : "лет"}
+                {event.yearsCount} {pluralYears(event.yearsCount)}
               </p>
             )}
           </div>
@@ -162,7 +189,8 @@ export default function EventsPage() {
         </div>
       </div>
     </Link>
-  );
+    );
+  };
 
   return (
     <div className="max-w-lg mx-auto px-2 py-4">
@@ -214,7 +242,7 @@ export default function EventsPage() {
               >
                 <Minus className="h-3 w-3" />
               </Button>
-              <span className="text-sm font-medium w-16 text-center">{days} дней</span>
+              <span className="text-sm font-medium w-16 text-center">{days} {pluralDays(days)}</span>
               <Button
                 variant="outline"
                 size="icon"
@@ -244,7 +272,7 @@ export default function EventsPage() {
               <CardContent className="py-16 text-center text-muted-foreground">
                 <CalendarDays className="h-16 w-16 mx-auto mb-4 opacity-20" />
                 <p className="text-lg font-medium mb-1">Нет событий</p>
-                <p className="text-sm">В ближайшие {days} дней нет предстоящих событий</p>
+                <p className="text-sm">В ближайшие {days} {pluralDays(days)} нет предстоящих событий</p>
               </CardContent>
             </Card>
           ) : (

@@ -37,7 +37,8 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
 
   // ── GET /events ──
   if (method === "GET" && apiPath === "/events") {
-    const days = parseInt(query.days) || 5;
+    const parsedDays = parseInt(query.days);
+    const days = Number.isFinite(parsedDays) ? parsedDays : 5;
     const yesterday = query.yesterday !== "false";
     const events = repo.getEvents(days, yesterday);
     return json(cors, { events, count: events.length });

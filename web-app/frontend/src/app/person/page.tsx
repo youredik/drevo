@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Search,
   Users,
   GitFork,
   BookOpen,
@@ -21,18 +22,21 @@ import {
   List,
   Play,
   Pause,
+  Share2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, mediaUrl, PersonBrief } from "@/lib/api";
-import { usePerson, useCheckFavorite, useBio } from "@/lib/swr";
+import { addRecentPerson } from "@/lib/recent-persons";
+import { usePerson, useCheckFavorite, useBio, useInfo } from "@/lib/swr";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
-import { ShareButton } from "@/components/share-button";
 import { Timeline } from "@/components/timeline";
 import { SafeImage } from "@/components/safe-image";
+import { AddPersonModal, type AddMode } from "@/components/add-person-modal";
+import { UserPlus } from "lucide-react";
 
 function haptic(ms = 10) {
   try { navigator?.vibrate?.(ms); } catch {}
@@ -43,12 +47,18 @@ function PersonContent() {
   const router = useRouter();
   const { canEdit } = useAuth();
   const id = Number(searchParams.get("id")) || 1;
-  const { data, isLoading: loading } = usePerson(id);
+  const { data: infoData } = useInfo();
+  const maxId = infoData?.personCount ?? id;
+  const nextId = id >= maxId ? 1 : id + 1;
+  const prevId = id <= 1 ? maxId : id - 1;
+  const { data, isLoading: loading, mutate: mutateData } = usePerson(id);
   const { data: favData, mutate: mutateFav } = useCheckFavorite(id);
   const { data: bioData } = useBio(id, data?.hasBio ?? false);
   const bio = bioData?.text ?? null;
   const isFav = favData?.isFavorite ?? false;
+  const shareRef = useRef<HTMLDivElement | null>(null);
   const [favLoading, setFavLoading] = useState(false);
+  const [addMode, setAddMode] = useState<AddMode | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
   const lightboxOpen = false;
   const [fabOpen, setFabOpen] = useState(false);
@@ -73,10 +83,21 @@ function PersonContent() {
   useEffect(() => {
     if (data) {
       document.title = `${data.person.lastName} ${data.person.firstName} — Drevo`;
-      localStorage.setItem("drevo-last-person", String(id));
+      addRecentPerson(id);
     }
     return () => { document.title = "Drevo — Семейное древо"; };
   }, [data, id]);
+
+  // Force dark theme on the person page so InfoRow labels/values resolve to
+  // light colours via CSS variables (the page background is hardcoded black).
+  useEffect(() => {
+    const html = document.documentElement;
+    const hadDark = html.classList.contains("dark");
+    if (!hadDark) html.classList.add("dark");
+    return () => {
+      if (!hadDark) html.classList.remove("dark");
+    };
+  }, []);
 
   const toggleFavorite = async () => {
     if (favLoading) return;
@@ -104,15 +125,144 @@ function PersonContent() {
     finally { setFavLoading(false); }
   };
 
+  const sharePersonScreenshot = async () => {
+    const el = shareRef.current;
+    if (!el) return;
+
+    // Cover the viewport with an opaque overlay so the user doesn't see the
+    // page jumping around when we scroll-to-top before capturing.
+    const overlay = document.createElement("div");
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:9999;background:#000;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-family:system-ui,sans-serif;";
+    overlay.textContent = "Подготовка скриншота…";
+    document.body.appendChild(overlay);
+
+    // Wait for FAB exit animation to finish.
+    await new Promise<void>((resolve) => setTimeout(resolve, 400));
+
+    const personLabel = data
+      ? `${data.person.lastName} ${data.person.firstName}`
+      : "Drevo";
+
+    // Force-scroll the page to put `el` at the very top of the viewport, so
+    // that html-to-image (which uses getBoundingClientRect) starts from y=0.
+    const prevScrollY = window.scrollY;
+    el.scrollIntoView({ block: "start", behavior: "auto" });
+    // Some browsers add a tiny offset; nudge to absolute top of element.
+    const currentRect = el.getBoundingClientRect();
+    if (currentRect.top !== 0) {
+      window.scrollBy(0, currentRect.top);
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    try {
+      const { toBlob } = await import("html-to-image");
+      const w = Math.max(el.offsetWidth, el.scrollWidth);
+      const h = Math.max(el.offsetHeight, el.scrollHeight);
+      const blob = await toBlob(el, {
+        backgroundColor: "#000000",
+        pixelRatio: 2,
+        cacheBust: true,
+        width: w,
+        height: h,
+        canvasWidth: w * 2,
+        canvasHeight: h * 2,
+        style: {
+          transform: "none",
+          transformOrigin: "0 0",
+          margin: "0",
+        },
+        filter: (node) => {
+          if (!(node instanceof HTMLElement)) return true;
+          // Skip nodes explicitly marked as not-shareable (FAB, backdrop, etc.)
+          return !node.classList.contains("share-skip");
+        },
+      });
+      if (!blob) throw new Error("Не удалось создать скриншот");
+
+      // PRIMARY: copy image to clipboard. This always overwrites the previous
+      // contents and works on desktop where Web Share API is unreliable.
+      let clipboardOk = false;
+      try {
+        if (
+          typeof navigator !== "undefined" &&
+          navigator.clipboard &&
+          typeof ClipboardItem !== "undefined"
+        ) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob }),
+          ]);
+          clipboardOk = true;
+        }
+      } catch (clipErr) {
+        console.warn("Clipboard image write failed:", clipErr);
+      }
+
+      // SECONDARY: on mobile, also try to open the native share sheet so the
+      // user can pick an app (WhatsApp, Telegram, ...). Only on touch devices
+      // where Web Share API is actually meaningful — desktop browsers report
+      // canShare:true but the resulting dialog is empty.
+      const file = new File([blob], `drevo-${id}.png`, { type: "image/png" });
+      const isTouchDevice =
+        typeof window !== "undefined" &&
+        (("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0);
+      if (
+        isTouchDevice &&
+        typeof navigator !== "undefined" &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] }) &&
+        navigator.share
+      ) {
+        try {
+          await navigator.share({
+            title: personLabel,
+            text: personLabel,
+            files: [file],
+          });
+          return;
+        } catch (e: any) {
+          if (e?.name === "AbortError") {
+            if (clipboardOk) toast.success("Скриншот скопирован в буфер обмена");
+            return;
+          }
+        }
+      }
+
+      if (clipboardOk) {
+        toast.success("Скриншот скопирован в буфер обмена");
+        return;
+      }
+
+      // Last resort — download the screenshot
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = `drevo-${id}.png`;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.info("Скриншот сохранён — отправьте его вручную");
+    } catch (e: any) {
+      console.error("Share failed:", e);
+      toast.error("Не удалось поделиться: " + (e?.message || "ошибка"));
+    } finally {
+      // Restore the original scroll position and remove the overlay
+      window.scrollTo({ top: prevScrollY, left: 0, behavior: "auto" });
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+  };
+
   const handlePersonSwipe = useCallback((_: any, info: { offset: { x: number }; velocity: { x: number } }) => {
     if (lightboxOpen) return;
     const threshold = 80;
     if (info.offset.x < -threshold && Math.abs(info.velocity.x) > 0.3) {
       haptic();
-      router.push(`/person?id=${id + 1}`);
-    } else if (info.offset.x > threshold && Math.abs(info.velocity.x) > 0.3 && id > 1) {
+      router.push(`/person?id=${nextId}`);
+    } else if (info.offset.x > threshold && Math.abs(info.velocity.x) > 0.3) {
       haptic();
-      router.push(`/person?id=${id - 1}`);
+      router.push(`/person?id=${prevId}`);
     }
   }, [id, lightboxOpen, router]);
 
@@ -187,8 +337,9 @@ function PersonContent() {
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.15}
         onDragEnd={handlePersonSwipe}
-        className="flex flex-col"
+        className="flex flex-col bg-black"
       >
+        <div ref={shareRef} className="flex flex-col bg-black">
         {/* === PARENTS — side by side at top === */}
         <div className="grid grid-cols-2 gap-1">
           {/* Father */}
@@ -211,7 +362,7 @@ function PersonContent() {
                 </div>
                 {/* Child count badge */}
                 {father.childCount != null && father.childCount > 0 && (
-                  <div className="absolute bottom-4 right-0 translate-x-1/2 z-10 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                  <div className="absolute bottom-4 left-0 -translate-x-1/2 z-10 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
                     style={{ background: "#383838" }}>
                     {father.childCount}
                   </div>
@@ -244,7 +395,7 @@ function PersonContent() {
                   </div>
                 </div>
                 {mother.childCount != null && mother.childCount > 0 && (
-                  <div className="absolute bottom-4 left-0 -translate-x-1/2 z-10 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                  <div className="absolute bottom-4 right-0 translate-x-1/2 z-10 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
                     style={{ background: "#383838" }}>
                     {mother.childCount}
                   </div>
@@ -262,7 +413,7 @@ function PersonContent() {
         {/* === MAIN PHOTO with SPOUSES on sides and NAV ARROWS === */}
         <div className="relative flex items-stretch mt-1">
           {/* Left arrow — centered on photo */}
-          <Link href={`/person?id=${id - 1}`} prefetch={false}
+          <Link href={`/person?id=${prevId}`} prefetch={false}
             className="absolute left-0 top-1/2 -translate-y-1/2 z-10 text-green-400 hover:text-green-300">
             <ChevronLeft className="h-10 w-10" strokeWidth={3} />
           </Link>
@@ -328,7 +479,7 @@ function PersonContent() {
           </div>
 
           {/* Right arrow — centered on photo */}
-          <Link href={`/person?id=${id + 1}`} prefetch={false}
+          <Link href={`/person?id=${nextId}`} prefetch={false}
             className="absolute right-0 top-1/2 -translate-y-1/2 z-10 text-green-400 hover:text-green-300">
             <ChevronRight className="h-10 w-10" strokeWidth={3} />
           </Link>
@@ -372,12 +523,12 @@ function PersonContent() {
         {/* === FAB MENU — Android-style with open/close animation === */}
         {/* Backdrop */}
         {fabOpen && (
-          <div className="fixed inset-0 z-30 bg-black/30" onClick={() => setFabOpen(false)} />
+          <div className="share-skip fixed inset-0 z-30 bg-black/30" onClick={() => setFabOpen(false)} />
         )}
 
         {/* Main FAB toggle — bottom right */}
         <motion.button
-          className="fixed right-4 bottom-20 z-50 h-12 w-12 rounded-full flex items-center justify-center shadow-xl"
+          className="share-skip fixed right-4 bottom-20 z-50 h-12 w-12 rounded-full flex items-center justify-center shadow-xl"
           style={{ background: "#01579B" }}
           onClick={() => setFabOpen(!fabOpen)}
           animate={{ rotate: fabOpen ? 45 : 0 }}
@@ -404,13 +555,12 @@ function PersonContent() {
                 onClick={() => { toggleFavorite(); setFabOpen(false); }}
                 label="Избранное"
               />
-              {/* Share (sendBtn) */}
+              {/* Share screenshot (sendBtn) */}
               <FabItem idx={2} x={-56} y={-60}
-                icon={<Copy className="h-5 w-5 text-white" />}
-                onClick={() => {
-                  navigator.clipboard?.writeText(`${person.lastName} ${person.firstName} — ${window.location.href}`);
-                  toast.success("Скопировано");
+                icon={<Share2 className="h-5 w-5 text-white" />}
+                onClick={async () => {
                   setFabOpen(false);
+                  await sharePersonScreenshot();
                 }}
                 label="Поделиться"
               />
@@ -446,6 +596,36 @@ function PersonContent() {
                   label="Редакт."
                 />
               )}
+              {/* Add spouse / son / daughter (if admin) */}
+              {canEdit && (
+                <>
+                  <FabItem idx={8} x={0} y={-180}
+                    icon={<UserPlus className="h-5 w-5 text-white" />}
+                    onClick={() => { setFabOpen(false); setAddMode("spouse"); }}
+                    label={person.sex === 1 ? "Жену" : "Мужа"}
+                  />
+                  <FabItem idx={9} x={-56} y={-180}
+                    icon={<UserPlus className="h-5 w-5 text-white" />}
+                    onClick={() => { setFabOpen(false); setAddMode("son"); }}
+                    label="Сына"
+                  />
+                  <FabItem idx={10} x={-112} y={-180}
+                    icon={<UserPlus className="h-5 w-5 text-white" />}
+                    onClick={() => { setFabOpen(false); setAddMode("daughter"); }}
+                    label="Дочь"
+                  />
+                  <FabItem idx={11} x={0} y={-240}
+                    icon={<UserPlus className="h-5 w-5 text-white" />}
+                    onClick={() => { setFabOpen(false); setAddMode("father"); }}
+                    label="Папу"
+                  />
+                  <FabItem idx={12} x={-56} y={-240}
+                    icon={<UserPlus className="h-5 w-5 text-white" />}
+                    onClick={() => { setFabOpen(false); setAddMode("mother"); }}
+                    label="Маму"
+                  />
+                </>
+              )}
             </>
           )}
         </AnimatePresence>
@@ -468,7 +648,7 @@ function PersonContent() {
           <Link href={`/search`} prefetch={false}>
             <div className="h-10 w-10 rounded-full flex items-center justify-center shadow-lg"
               style={{ background: "#0288D1" }}>
-              <Users className="h-4 w-4 text-white" />
+              <Search className="h-4 w-4 text-white" />
             </div>
           </Link>
           <Link href={`/kinship?id1=${id}`} prefetch={false}>
@@ -498,7 +678,7 @@ function PersonContent() {
             </TabsList>
 
             <TabsContent value="info" className="mt-4 space-y-3">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+              <div>
                 <InfoRow label="Дата рождения" value={person.birthDay || "—"} />
                 <InfoRow label="Место рождения" value={person.birthPlace || "—"} />
                 {!isAlive && <InfoRow label="Дата кончины" value={person.deathDay || "—"} />}
@@ -506,7 +686,7 @@ function PersonContent() {
                 {person.address && <InfoRow label="Адрес" value={person.address} />}
                 {person.marryDay && <InfoRow label="Дата свадьбы" value={person.marryDay} />}
                 <InfoRow label="Пол" value={person.sex === 1 ? "Мужской" : "Женский"} />
-              </motion.div>
+              </div>
             </TabsContent>
 
             <TabsContent value="family" className="mt-4 space-y-4">
@@ -545,7 +725,7 @@ function PersonContent() {
 
             {(data.hasBio || bio) && (
               <TabsContent value="bio" className="mt-4">
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                <motion.div initial={false} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                   {bio ? (
                     <div>
                       <div className="flex justify-end mb-2">
@@ -565,7 +745,7 @@ function PersonContent() {
             )}
 
             <TabsContent value="timeline" className="mt-4">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+              <motion.div initial={false} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                 <Timeline events={[
                   ...(person.birthDay ? [{ date: person.birthDay, label: `Родился: ${person.lastName} ${person.firstName}`, type: "birth" as const }] : []),
                   ...(person.marryDay ? [{ date: person.marryDay, label: "Свадьба", type: "marriage" as const }] : []),
@@ -577,8 +757,26 @@ function PersonContent() {
             </TabsContent>
           </Tabs>
         </div>
+        </div>
       </motion.div>
 
+      {/* Add person modal */}
+      {addMode && data && (
+        <AddPersonModal
+          open
+          onOpenChange={(open) => { if (!open) setAddMode(null); }}
+          mode={addMode}
+          currentPersonId={id}
+          currentPersonSex={person.sex}
+          currentPersonLastName={person.lastName}
+          currentPersonSpouseIds={person.spouseIds}
+          onCreated={(newId) => {
+            setAddMode(null);
+            // Revalidate current person's data so new relations appear immediately
+            mutateData();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -600,8 +798,8 @@ function SpouseCircle({ spouse }: { spouse: PersonBrief }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start gap-3 py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground w-36 shrink-0">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+      <span className="w-36 shrink-0" style={{ color: "#9ca3af", fontSize: 14 }}>{label}</span>
+      <span style={{ color: "#ffffff", fontSize: 14, fontWeight: 500 }}>{value}</span>
     </div>
   );
 }
@@ -612,7 +810,7 @@ function FabItem({ idx, x, y, icon, onClick, href, label }: {
 }) {
   const content = (
     <motion.div
-      className="fixed z-40 flex flex-col items-center"
+      className="share-skip fixed z-40 flex flex-col items-center"
       style={{ right: 16, bottom: 80 }}
       initial={{ opacity: 0, x: 0, y: 0, scale: 0.3 }}
       animate={{ opacity: 1, x, y, scale: 1 }}

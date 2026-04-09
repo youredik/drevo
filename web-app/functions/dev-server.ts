@@ -2,10 +2,11 @@ import express from "express";
 import cors from "cors";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, readFileSync, createReadStream } from "fs";
+import { existsSync, readFileSync, writeFileSync, createReadStream, readdirSync, statSync } from "fs";
 import mime from "mime-types";
 
 import { DataRepository } from "./shared/data-repository.js";
+import { parsePersonsCsvString } from "./shared/csv-parser.js";
 import {
   initUsers, authenticate, authMiddleware, getUsers,
   createUser, updateUserById, deleteUserById,
@@ -23,6 +24,18 @@ const CSV_PATH = join(ASSETS, "fam.csv");
 const FAV_PATH = join(ASSETS, "fav.csv");
 const MEDIA_PATH = join(ASSETS, "images");
 const INFO_PATH = join(ASSETS, "info");
+
+/** Persist current in-memory data back to fam.csv so changes survive restarts. */
+function persistCsv() {
+  try {
+    const csv = repo.exportToCsv();
+    console.log(`[persistCsv] Writing ${csv.length} bytes (${repo.getPersonCount()} persons) to ${CSV_PATH}`);
+    writeFileSync(CSV_PATH, csv, "utf-8");
+    console.log("[persistCsv] OK");
+  } catch (e) {
+    console.error("[persistCsv] FAILED:", e);
+  }
+}
 
 const app = express();
 app.use(cors());
@@ -76,7 +89,7 @@ app.get("/api/persons/:id", (req, res) => {
   const id = parseInt(req.params.id);
   const card = repo.getPersonCard(id);
   if (!card) { res.status(404).json({ error: "Человек не найден" }); return; }
-  res.setHeader("Cache-Control", "public, max-age=120");
+  res.setHeader("Cache-Control", "no-cache");
   res.json(card);
 });
 
@@ -91,15 +104,16 @@ app.get("/api/persons", (req, res) => {
 app.get("/api/search", (req, res) => {
   const q = (req.query.q as string) || "";
   const results = repo.search(q);
-  res.setHeader("Cache-Control", "public, max-age=30");
+  res.setHeader("Cache-Control", "no-cache");
   res.json({ results, count: results.length });
 });
 
 app.get("/api/events", (req, res) => {
-  const days = parseInt(req.query.days as string) || 5;
+  const parsed = parseInt(req.query.days as string);
+  const days = Number.isFinite(parsed) ? parsed : 5;
   const yesterday = req.query.yesterday !== "false";
   const events = repo.getEvents(days, yesterday);
-  res.setHeader("Cache-Control", "public, max-age=60");
+  res.setHeader("Cache-Control", "no-cache");
   res.json({ events, count: events.length });
 });
 
@@ -108,7 +122,7 @@ app.get("/api/tree/:id", (req, res) => {
   const type = (req.query.type as string) || "ancestors";
   const tree = type === "descendants" ? repo.getDescendantTree(id) : repo.getAncestorTree(id);
   if (!tree) { res.status(404).json({ error: "Человек не найден" }); return; }
-  res.setHeader("Cache-Control", "public, max-age=120");
+  res.setHeader("Cache-Control", "no-cache");
   res.json(tree);
 });
 
@@ -129,7 +143,7 @@ app.get("/api/family/:id", (req, res) => {
 });
 
 app.get("/api/stats", (_req, res) => {
-  res.setHeader("Cache-Control", "public, max-age=300");
+  res.setHeader("Cache-Control", "no-cache");
   res.json(repo.getStats());
 });
 
@@ -181,7 +195,7 @@ app.get("/api/media/:filename", (req, res) => {
 });
 
 app.get("/api/info", (_req, res) => {
-  res.setHeader("Cache-Control", "public, max-age=300");
+  res.setHeader("Cache-Control", "no-cache");
   res.json({
     appName: "Drevo",
     personCount: repo.getPersonCount(),
@@ -236,6 +250,7 @@ app.post("/api/admin/persons", authMiddleware("manager"), async (req, res) => {
   if (person.fatherId) repo.addChildRelation(person.fatherId, id);
   if (person.motherId) repo.addChildRelation(person.motherId, id);
   if (useYdb) await upsertPerson(person);
+  persistCsv();
 
   res.status(201).json({ person });
 });
@@ -271,6 +286,7 @@ app.put("/api/admin/persons/:id", authMiddleware("manager"), async (req, res) =>
   });
 
   if (useYdb && updated) await upsertPerson(updated);
+  persistCsv();
   res.json({ person: updated });
 });
 
@@ -279,6 +295,7 @@ app.delete("/api/admin/persons/:id", authMiddleware("manager"), async (req, res)
   if (!repo.getPerson(id)) { res.status(404).json({ error: "Человек не найден" }); return; }
   repo.removePerson(id);
   if (useYdb) await ydbDeletePerson(id);
+  persistCsv();
   res.json({ deleted: true });
 });
 
@@ -291,6 +308,7 @@ app.post("/api/admin/persons/:id/spouse", authMiddleware("manager"), async (req,
   if (!repo.getPerson(id) || !repo.getPerson(spouseId)) { res.status(404).json({ error: "Человек не найден" }); return; }
   repo.addSpouseRelation(id, spouseId);
   if (useYdb) await addSpouse(id, spouseId);
+  persistCsv();
   res.json({ ok: true });
 });
 
@@ -299,6 +317,7 @@ app.delete("/api/admin/persons/:id/spouse/:sid", authMiddleware("manager"), asyn
   const sid = parseInt(req.params.sid);
   repo.removeSpouseRelation(id, sid);
   if (useYdb) await removeSpouse(id, sid);
+  persistCsv();
   res.json({ ok: true });
 });
 
@@ -309,6 +328,7 @@ app.post("/api/admin/persons/:id/child", authMiddleware("manager"), async (req, 
   if (!repo.getPerson(id) || !repo.getPerson(childId)) { res.status(404).json({ error: "Человек не найден" }); return; }
   repo.addChildRelation(id, childId);
   if (useYdb) await addChild(id, childId);
+  persistCsv();
   res.json({ ok: true });
 });
 
@@ -317,6 +337,7 @@ app.delete("/api/admin/persons/:id/child/:cid", authMiddleware("manager"), async
   const cid = parseInt(req.params.cid);
   repo.removeChildRelation(id, cid);
   if (useYdb) await removeChild(id, cid);
+  persistCsv();
   res.json({ ok: true });
 });
 
@@ -327,6 +348,7 @@ app.post("/api/admin/persons/:id/parent", authMiddleware("manager"), async (req,
   repo.setParents(id, fatherId || 0, motherId || 0);
   const person = repo.getPerson(id)!;
   if (useYdb) await upsertPerson(person);
+  persistCsv();
   res.json({ person });
 });
 
@@ -431,6 +453,85 @@ app.get("/api/admin/audit-logs", authMiddleware("admin"), async (_req, res) => {
 
 app.get("/api/admin/validate", authMiddleware("manager"), (_req, res) => {
   res.json(repo.validate());
+});
+
+// Backup: saves current CSV to a timestamped file before mutations
+app.post("/api/admin/backup", authMiddleware("manager"), (_req, res) => {
+  try {
+    const csv = repo.exportToCsv();
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const backupDir = process.env.ASSETS_PATH || ".";
+    const backupPath = join(backupDir, `fam-backup-${ts}.csv`);
+    writeFileSync(backupPath, csv, "utf-8");
+    res.json({ ok: true, path: backupPath });
+  } catch (e: any) {
+    res.status(500).json({ error: "Backup failed: " + e.message });
+  }
+});
+
+// List available backups
+app.get("/api/admin/backups", authMiddleware("manager"), (_req, res) => {
+  try {
+    const dir = process.env.ASSETS_PATH || ".";
+    const files = readdirSync(dir)
+      .filter((f) => f.startsWith("fam-backup-") && f.endsWith(".csv"))
+      .map((f) => {
+        const st = statSync(join(dir, f));
+        return { name: f, size: st.size, date: st.mtime.toISOString() };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date)); // newest first
+    res.json({ backups: files });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Restore from a specific backup
+app.post("/api/admin/restore", authMiddleware("admin"), (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== "string" || !name.startsWith("fam-backup-")) {
+      res.status(400).json({ error: "Неверное имя файла бэкапа" });
+      return;
+    }
+    const dir = process.env.ASSETS_PATH || ".";
+    const backupPath = join(dir, name);
+    if (!existsSync(backupPath)) {
+      res.status(404).json({ error: "Файл бэкапа не найден" });
+      return;
+    }
+    // Backup current state before restoring
+    const csv = repo.exportToCsv();
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    writeFileSync(join(dir, `fam-backup-${ts}.csv`), csv, "utf-8");
+
+    // Restore
+    const backupCsv = readFileSync(backupPath, "utf-8");
+    const persons = parsePersonsCsvString(backupCsv);
+    repo.replaceAll(persons);
+    persistCsv();
+    console.log(`[restore] Restored ${persons.size} persons from ${name}`);
+    res.json({ ok: true, count: persons.size });
+  } catch (e: any) {
+    res.status(500).json({ error: "Restore failed: " + e.message });
+  }
+});
+
+app.post("/api/admin/import", authMiddleware("admin"), (req, res) => {
+  try {
+    const { csv } = req.body;
+    if (!csv || typeof csv !== "string") {
+      res.status(400).json({ error: "Передайте csv в теле запроса" });
+      return;
+    }
+    const persons = parsePersonsCsvString(csv);
+    repo.replaceAll(persons);
+    persistCsv();
+    console.log(`[import] Imported ${persons.size} persons`);
+    res.json({ ok: true, count: persons.size });
+  } catch (e: any) {
+    res.status(500).json({ error: "Import failed: " + e.message });
+  }
 });
 
 app.get("/api/admin/export", authMiddleware("admin"), (_req, res) => {

@@ -19,6 +19,14 @@ export function useVoiceSearch({ lang = "ru-RU", onResult }: UseVoiceSearchOptio
     );
   }, []);
 
+  // Cleanup on unmount — stop any active recognition
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
   const toggle = useCallback(() => {
     if (listening) {
       recognitionRef.current?.stop();
