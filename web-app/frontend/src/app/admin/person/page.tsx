@@ -37,6 +37,7 @@ import { toast } from "sonner";
 
 function validateDate(value: string): boolean {
   if (!value) return true; // empty is ok
+  if (value === "?") return true; // unknown date (marks person as deceased)
   return /^\d{4}$/.test(value) || /^\d{2}\.\d{2}\.\d{4}$/.test(value);
 }
 
