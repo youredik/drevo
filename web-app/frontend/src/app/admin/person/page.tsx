@@ -67,6 +67,7 @@ function PersonEditor() {
   const [spousesText, setSpousesText] = useState("");
   const [childrenText, setChildrenText] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+  const [photoCacheBust, setPhotoCacheBust] = useState(0);
   const [bio, setBio] = useState("");
   const [bioLoaded, setBioLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -552,22 +553,27 @@ function PersonEditor() {
               {photos.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-4 text-center">Нет фотографий</p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {photos.map((photo) => (
-                    <div key={photo} className="relative group">
-                      <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted">
-                        <SafeImage src={mediaUrl(photo)} alt="" className="w-full h-full object-cover" loading="lazy" />
-                      </div>
-                      <button
-                        className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setDeletePhotoName(photo)}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">{photo}</p>
-                    </div>
-                  ))}
-                </div>
+                <PhotoGrid
+                  photos={photos}
+                  photoCacheBust={photoCacheBust}
+                  personId={id}
+                  onReorder={async (newOrder) => {
+                    try {
+                      const result = await api.reorderPhotos(id, newOrder);
+                      // Clear SW media cache so reordered photos load fresh everywhere
+                      if (typeof caches !== "undefined") {
+                        const keys = await caches.keys();
+                        for (const key of keys) {
+                          if (key.includes("media")) await caches.delete(key);
+                        }
+                      }
+                      setPhotos(result.photos);
+                      setPhotoCacheBust(Date.now());
+                      toast.success("Порядок изменён");
+                    } catch (e: any) { toast.error(e.message); }
+                  }}
+                  onDelete={(photo) => setDeletePhotoName(photo)}
+                />
               )}
             </CardContent>
           </Card>
@@ -644,5 +650,162 @@ export default function AdminPersonPage() {
     <Suspense fallback={<div className="max-w-4xl mx-auto px-4 py-8"><Skeleton className="h-96 rounded-xl" /></div>}>
       <PersonEditor />
     </Suspense>
+  );
+}
+
+// ─── Drag-and-drop photo grid ────────────────────────
+
+function PhotoGrid({
+  photos,
+  photoCacheBust,
+  personId,
+  onReorder,
+  onDelete,
+}: {
+  photos: string[];
+  photoCacheBust: number;
+  personId: number;
+  onReorder: (newOrder: string[]) => Promise<void>;
+  onDelete: (photo: string) => void;
+}) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const touchStartRef = useRef<{ idx: number; x: number; y: number } | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Compute display order (preview of what the drop would look like)
+  const displayPhotos = (() => {
+    if (dragIdx === null || overIdx === null || dragIdx === overIdx) return photos;
+    const arr = [...photos];
+    const [moved] = arr.splice(dragIdx, 1);
+    arr.splice(overIdx, 0, moved);
+    return arr;
+  })();
+
+  // ── Mouse/pointer drag ──
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    // Transparent drag image (we show the preview via CSS)
+    const img = new Image();
+    img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=";
+    e.dataTransfer.setDragImage(img, 0, 0);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setOverIdx(idx);
+  };
+
+  const handleDrop = async () => {
+    if (dragIdx !== null && overIdx !== null && dragIdx !== overIdx) {
+      const newOrder = [...photos];
+      const [moved] = newOrder.splice(dragIdx, 1);
+      newOrder.splice(overIdx, 0, moved);
+      await onReorder(newOrder);
+    }
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+
+  // ── Touch drag (mobile) ──
+  const handleTouchStart = (idx: number, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { idx, x: touch.clientX, y: touch.clientY };
+    // Delay to distinguish scroll from drag
+    setTimeout(() => {
+      if (touchStartRef.current?.idx === idx) {
+        setDragIdx(idx);
+      }
+    }, 200);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (dragIdx === null || !gridRef.current) return;
+    const touch = e.touches[0];
+    const grid = gridRef.current;
+    const cards = grid.querySelectorAll<HTMLElement>("[data-photo-idx]");
+    for (const card of cards) {
+      const rect = card.getBoundingClientRect();
+      if (
+        touch.clientX >= rect.left && touch.clientX <= rect.right &&
+        touch.clientY >= rect.top && touch.clientY <= rect.bottom
+      ) {
+        const idx = Number(card.dataset.photoIdx);
+        if (!isNaN(idx)) setOverIdx(idx);
+        break;
+      }
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    touchStartRef.current = null;
+    if (dragIdx !== null && overIdx !== null && dragIdx !== overIdx) {
+      const newOrder = [...photos];
+      const [moved] = newOrder.splice(dragIdx, 1);
+      newOrder.splice(overIdx, 0, moved);
+      await onReorder(newOrder);
+    }
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+
+  return (
+    <div
+      ref={gridRef}
+      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {displayPhotos.map((photo, idx) => {
+        const originalIdx = photos.indexOf(photo);
+        const isDragging = dragIdx !== null && originalIdx === dragIdx;
+        return (
+          <div
+            key={`${photo}-${photoCacheBust}`}
+            data-photo-idx={idx}
+            draggable
+            onDragStart={(e) => handleDragStart(e, originalIdx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDrop={handleDrop}
+            onDragEnd={handleDragEnd}
+            onTouchStart={(e) => handleTouchStart(originalIdx, e)}
+            className={`relative group cursor-grab active:cursor-grabbing touch-none ${
+              isDragging ? "opacity-40 scale-95" : ""
+            } ${overIdx === idx && dragIdx !== null ? "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg" : ""} transition-all`}
+          >
+            <div className={`aspect-[3/4] rounded-lg overflow-hidden bg-muted ${idx === 0 ? "ring-2 ring-primary" : ""}`}>
+              <SafeImage
+                src={`${mediaUrl(photo)}${photoCacheBust ? `&_cb=${photoCacheBust}` : ""}`}
+                alt=""
+                className="w-full h-full object-cover pointer-events-none"
+                loading="lazy"
+              />
+            </div>
+            {/* Delete button */}
+            <button
+              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onDelete(photo); }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {/* Label */}
+            <div className="mt-1 text-center">
+              {idx === 0 ? (
+                <span className="text-xs text-primary font-medium">Главное</span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground">Перетащите</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

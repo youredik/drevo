@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, readFileSync, writeFileSync, createReadStream, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, createReadStream, readdirSync, statSync, renameSync } from "fs";
 import mime from "mime-types";
 
 import { DataRepository } from "./shared/data-repository.js";
@@ -362,6 +362,53 @@ app.post("/api/admin/persons/:id/photo", authMiddleware("manager"), async (req, 
   const imageData = Buffer.from(data, "base64");
   const fn = repo.addPhoto(id, imageData, filename);
   res.json({ filename: fn, photos: repo.getPhotos(id) });
+});
+
+app.post("/api/admin/persons/:id/photo/reorder", authMiddleware("manager"), (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!repo.getPerson(id)) { res.status(404).json({ error: "Человек не найден" }); return; }
+  const { order } = req.body; // array of filenames in new order
+  if (!Array.isArray(order)) { res.status(400).json({ error: "Укажите order (массив имён файлов)" }); return; }
+  try {
+    const imagesDir = join(ASSETS, "images");
+    // Get ALL current photos on disk for this person (in case order array is incomplete)
+    const allOnDisk = readdirSync(imagesDir)
+      .filter((f: string) => new RegExp(`^${id}#\\d+\\.jpg$`, "i").test(f));
+    // Validate: order must contain exactly the same files
+    const orderSet = new Set(order);
+    const diskSet = new Set(allOnDisk);
+    // Use order for files that exist; append any missing files at the end
+    const fullOrder = [...order.filter((f: string) => diskSet.has(f))];
+    for (const f of allOnDisk) {
+      if (!orderSet.has(f)) fullOrder.push(f);
+    }
+
+    // Rename to temporary names first to avoid collisions
+    const tempNames: string[] = [];
+    for (let i = 0; i < fullOrder.length; i++) {
+      const tmpName = `${id}#tmp${i}.jpg`;
+      const srcPath = join(imagesDir, fullOrder[i]);
+      const tmpPath = join(imagesDir, tmpName);
+      if (existsSync(srcPath)) {
+        renameSync(srcPath, tmpPath);
+      }
+      tempNames.push(tmpName);
+    }
+    // Rename from temp to final sequential names
+    for (let i = 0; i < tempNames.length; i++) {
+      const tmpPath = join(imagesDir, tempNames[i]);
+      const finalName = `${id}#${i}.jpg`;
+      const finalPath = join(imagesDir, finalName);
+      if (existsSync(tmpPath)) {
+        renameSync(tmpPath, finalPath);
+      }
+    }
+    // Refresh photo cache
+    repo.refreshPhotos(id, imagesDir, readdirSync);
+    res.json({ ok: true, photos: repo.getPhotos(id) });
+  } catch (e: any) {
+    res.status(500).json({ error: "Reorder failed: " + e.message });
+  }
 });
 
 app.delete("/api/admin/persons/:id/photo/:filename", authMiddleware("manager"), async (req, res) => {

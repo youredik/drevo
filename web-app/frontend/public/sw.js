@@ -1,6 +1,6 @@
 const CACHE_NAME = "drevo-v5";
 const API_CACHE_NAME = "drevo-api-v5";
-const MEDIA_CACHE_NAME = "drevo-media-v3";
+const MEDIA_CACHE_NAME = "drevo-media-v4";
 const MEDIA_CACHE_MAX = 200;
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -39,29 +39,23 @@ self.addEventListener("fetch", (event) => {
   // RSC flight data (.txt) — let Next.js handle directly, no SW caching
   if (url.pathname.endsWith(".txt")) return;
 
-  // Media requests: cache-first, auth via ?token= in original URL
-  // (Authorization header injection doesn't work — <img> uses no-cors mode
-  //  which silently strips non-simple headers)
+  // Media requests: network-first with offline fallback
   if (url.pathname.startsWith("/api/media/")) {
-    // Cache key: clean URL without token (deduplication across token changes)
     const cacheUrl = new URL(request.url);
     cacheUrl.searchParams.delete("token");
     const cacheKey = cacheUrl.toString();
 
     event.respondWith(
       caches.open(MEDIA_CACHE_NAME).then((cache) =>
-        cache.match(cacheKey).then((cached) => {
-          const fetchPromise = fetch(request)
-            .then((response) => {
-              if (response.ok) {
-                cache.put(cacheKey, response.clone());
-                trimCache(MEDIA_CACHE_NAME, MEDIA_CACHE_MAX);
-              }
-              return response;
-            })
-            .catch(() => cached);
-          return cached || fetchPromise;
-        })
+        fetch(request)
+          .then((response) => {
+            if (response.ok) {
+              cache.put(cacheKey, response.clone());
+              trimCache(MEDIA_CACHE_NAME, MEDIA_CACHE_MAX);
+            }
+            return response;
+          })
+          .catch(() => cache.match(cacheKey))
       )
     );
     return;

@@ -46,7 +46,7 @@ export function useTree(id: number | null, type: "ancestors" | "descendants" = "
   return useSWR<TreeNode>(
     id ? `tree-${id}-${type}` : null,
     () => api.getTree(id!, type),
-    { ...defaultConfig, revalidateIfStale: false }
+    defaultConfig
   );
 }
 

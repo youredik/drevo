@@ -345,6 +345,12 @@ export const api = {
       body: JSON.stringify({ fatherId, motherId }),
     }),
 
+  reorderPhotos: (id: number, order: string[]) =>
+    request<{ ok: boolean; photos: string[] }>(`/api/admin/persons/${id}/photo/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ order }),
+    }),
+
   uploadPhoto: (id: number, base64: string, filename: string) =>
     request<{ filename: string; photos: string[] }>(`/api/admin/persons/${id}/photo`, {
       method: "POST",

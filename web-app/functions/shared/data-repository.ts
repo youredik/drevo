@@ -88,6 +88,14 @@ export class DataRepository {
     return this.photoCache.get(personId) || [];
   }
 
+  refreshPhotos(personId: number, imagesDir: string, readDir: (path: string) => string[]): void {
+    const files: string[] = readDir(imagesDir);
+    const personPhotos = files
+      .filter((f: string) => f.match(new RegExp(`^${personId}#\\d+\\.jpg$`, "i")))
+      .sort((a: string, b: string) => parseInt(a.split("#")[1]) - parseInt(b.split("#")[1]));
+    this.photoCache.set(personId, personPhotos);
+  }
+
   getDefaultPhoto(person: Person): string {
     const photos = this.getPhotos(person.id);
     if (photos.length > 0) return photos[0];
