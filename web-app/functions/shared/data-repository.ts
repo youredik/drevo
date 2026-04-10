@@ -234,7 +234,12 @@ export class DataRepository {
           (includeYesterday && daysUntil === -1);
 
         if (inRange) {
-          const ageNum = calculateAgeNumber(person.birthDay, "");
+          // Calculate age the person will be ON the event date (today + daysUntil)
+          const eventDateMs = today.getTime() + daysUntil * 86400000;
+          const eventYear = new Date(eventDateMs).getUTCFullYear();
+          const birthParts = person.birthDay.split(".");
+          const birthYear = birthParts.length >= 3 ? parseInt(birthParts[2]) : 0;
+          const ageAtEvent = birthYear > 0 ? eventYear - birthYear : 0;
           events.push({
             id: person.id,
             firstName: person.firstName,
@@ -245,7 +250,7 @@ export class DataRepository {
             marryDay: person.marryDay,
             eventType: "birthday",
             eventDate: birthDM,
-            yearsCount: ageNum >= 0 ? ageNum : 0,
+            yearsCount: ageAtEvent > 0 ? ageAtEvent : 0,
             daysUntil,
             photo: this.getDefaultPhoto(person),
           });
@@ -260,7 +265,9 @@ export class DataRepository {
           (daysUntil >= 0 && daysUntil <= days) ||
           (includeYesterday && this.isYesterday(deathDM, today))
         ) {
-          const yearsSinceDeath = today.getUTCFullYear() - (new Date(person.deathDay.split(".").reverse().join("-"))).getFullYear();
+          const eventDateMs = today.getTime() + daysUntil * 86400000;
+          const eventYear = new Date(eventDateMs).getUTCFullYear();
+          const yearsSinceDeath = eventYear - (new Date(person.deathDay.split(".").reverse().join("-"))).getFullYear();
           events.push({
             id: person.id,
             firstName: person.firstName,
@@ -287,8 +294,10 @@ export class DataRepository {
           (daysUntil >= 0 && daysUntil <= days) ||
           (includeYesterday && this.isYesterday(marryDM, today))
         ) {
+          const eventDateMs = today.getTime() + daysUntil * 86400000;
+          const eventYear = new Date(eventDateMs).getUTCFullYear();
           const marryDate = person.marryDay.split(".").reverse().join("-");
-          const yearsSinceMarriage = today.getUTCFullYear() - new Date(marryDate).getFullYear();
+          const yearsSinceMarriage = eventYear - new Date(marryDate).getFullYear();
           events.push({
             id: person.id,
             firstName: person.firstName,
