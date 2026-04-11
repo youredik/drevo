@@ -12,23 +12,51 @@ const defaultConfig = {
   dedupingInterval: 30000, // 30s dedup
 };
 
-// ─── Local-first hooks: use client repo if available, fallback to API ──
+// ─── Mutable hooks: use fallbackData so mutate() still works ──
 
 export function usePerson(id: number | null) {
   const { repo } = useData();
-  const local = useMemo(() => {
+  const fallback = useMemo(() => {
     if (!repo || !id) return undefined;
     return repo.getPersonCard(id) ?? undefined;
   }, [repo, id]);
 
-  const swr = useSWR<PersonCard>(
-    id && !local ? `person-${id}` : null,
+  return useSWR<PersonCard>(
+    id ? `person-${id}` : null,
     () => api.getPerson(id!),
-    defaultConfig
+    { ...defaultConfig, fallbackData: fallback, revalidateOnMount: !fallback }
   );
-
-  return local ? { data: local, error: undefined, isLoading: false, mutate: swr.mutate } : swr;
 }
+
+export function useFavorites() {
+  const { repo } = useData();
+  const fallback = useMemo(() => {
+    if (!repo) return undefined;
+    return { favorites: repo.getFavoriteCards() };
+  }, [repo]);
+
+  return useSWR(
+    "favorites",
+    () => api.getFavorites(),
+    { ...defaultConfig, fallbackData: fallback, revalidateOnMount: !fallback }
+  );
+}
+
+export function useCheckFavorite(personId: number | null) {
+  const { repo } = useData();
+  const fallback = useMemo(() => {
+    if (!repo || !personId) return undefined;
+    return { isFavorite: repo.isFavorite(personId) };
+  }, [repo, personId]);
+
+  return useSWR<{ isFavorite: boolean }>(
+    personId ? `fav-check-${personId}` : null,
+    () => api.checkFavorite(personId!),
+    { ...defaultConfig, fallbackData: fallback, revalidateOnMount: !fallback }
+  );
+}
+
+// ─── Read-only hooks: fully local, no API calls needed ──
 
 export function useStats() {
   const { repo } = useData();
@@ -102,38 +130,6 @@ export function useKinship(id1: number | null, id2: number | null) {
   const swr = useSWR<KinshipResult>(
     id1 && id2 && !local ? `kinship-${id1}-${id2}` : null,
     () => api.getKinship(id1!, id2!),
-    defaultConfig
-  );
-
-  return local ? { data: local, error: undefined, isLoading: false, mutate: swr.mutate } : swr;
-}
-
-export function useFavorites() {
-  const { repo } = useData();
-  const local = useMemo(() => {
-    if (!repo) return undefined;
-    return { favorites: repo.getFavoriteCards() };
-  }, [repo]);
-
-  const swr = useSWR(
-    !local ? "favorites" : null,
-    () => api.getFavorites(),
-    defaultConfig
-  );
-
-  return local ? { data: local, error: undefined, isLoading: false, mutate: swr.mutate } : swr;
-}
-
-export function useCheckFavorite(personId: number | null) {
-  const { repo } = useData();
-  const local = useMemo(() => {
-    if (!repo || !personId) return undefined;
-    return { isFavorite: repo.isFavorite(personId) };
-  }, [repo, personId]);
-
-  const swr = useSWR<{ isFavorite: boolean }>(
-    personId && !local ? `fav-check-${personId}` : null,
-    () => api.checkFavorite(personId!),
     defaultConfig
   );
 
