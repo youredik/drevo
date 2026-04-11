@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl, PersonCard } from "@/lib/api";
-import { useData } from "@/lib/data-context";
+import { useData, notifyDataChanged } from "@/lib/data-context";
 import { toast } from "sonner";
 import { AnimatedItem } from "@/components/animated-list";
 import { SafeImage } from "@/components/safe-image";
@@ -37,6 +37,7 @@ export default function FavoritesPage() {
     const removed = favorites.find((f) => f.person.id === personId);
     try {
       await api.removeFavorite(personId);
+      notifyDataChanged();
       setFavorites((prev) => prev.filter((f) => f.person.id !== personId));
       toast.success("Удалено из избранного", {
         action: {

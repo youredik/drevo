@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import { api, PersonCard, StatsData, EventItem, SearchResult, KinshipResult, TreeNode } from "./api";
 import { useData } from "./data-context";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 // SWR config defaults
 const defaultConfig = {
@@ -21,11 +21,18 @@ export function usePerson(id: number | null) {
     return repo.getPersonCard(id) ?? undefined;
   }, [repo, id]);
 
-  return useSWR<PersonCard>(
+  const result = useSWR<PersonCard>(
     id ? `person-${id}` : null,
     () => api.getPerson(id!),
     { ...defaultConfig, fallbackData: fallback, revalidateOnMount: !fallback }
   );
+
+  // Sync SWR cache when repo updates (after notifyDataChanged)
+  useEffect(() => {
+    if (fallback && result.data) result.mutate(fallback, false);
+  }, [fallback]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return result;
 }
 
 export function useFavorites() {
@@ -35,11 +42,17 @@ export function useFavorites() {
     return { favorites: repo.getFavoriteCards() };
   }, [repo]);
 
-  return useSWR(
+  const result = useSWR(
     "favorites",
     () => api.getFavorites(),
     { ...defaultConfig, fallbackData: fallback, revalidateOnMount: !fallback }
   );
+
+  useEffect(() => {
+    if (fallback && result.data) result.mutate(fallback, false);
+  }, [fallback]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return result;
 }
 
 export function useCheckFavorite(personId: number | null) {
@@ -49,11 +62,17 @@ export function useCheckFavorite(personId: number | null) {
     return { isFavorite: repo.isFavorite(personId) };
   }, [repo, personId]);
 
-  return useSWR<{ isFavorite: boolean }>(
+  const result = useSWR<{ isFavorite: boolean }>(
     personId ? `fav-check-${personId}` : null,
     () => api.checkFavorite(personId!),
     { ...defaultConfig, fallbackData: fallback, revalidateOnMount: !fallback }
   );
+
+  useEffect(() => {
+    if (fallback && result.data) result.mutate(fallback, false);
+  }, [fallback]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return result;
 }
 
 // ─── Read-only hooks: fully local, no API calls needed ──

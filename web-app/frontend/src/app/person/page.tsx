@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, mediaUrl, PersonBrief } from "@/lib/api";
+import { notifyDataChanged } from "@/lib/data-context";
 import { addRecentPerson } from "@/lib/recent-persons";
 import { usePerson, useCheckFavorite, useBio, useInfo } from "@/lib/swr";
 import { useAuth } from "@/lib/auth-context";
@@ -121,6 +122,7 @@ function PersonContent() {
         mutateFav({ isFavorite: true }, false);
         toast.success("Добавлено в избранное");
       }
+      notifyDataChanged();
     } catch (e: any) { toast.error(e.message || "Не удалось обновить избранное"); }
     finally { setFavLoading(false); }
   };
