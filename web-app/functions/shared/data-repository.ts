@@ -228,6 +228,36 @@ export class DataRepository {
     return this.persons.size;
   }
 
+  /** Returns compact data bundle for client-side computation. */
+  getDataBundle(): {
+    persons: Person[];
+    favorites: number[];
+    photos: Record<number, string[]>;
+    bios: { open: number[]; locked: number[] };
+    version: number;
+  } {
+    const photos: Record<number, string[]> = {};
+    for (const [id, files] of this.photoCache) {
+      photos[id] = files;
+    }
+    const openBios: number[] = [];
+    const lockedBios: number[] = [];
+    for (const file of this.bioCache) {
+      const match = file.match(/^(open|lock)#(\d+)$/);
+      if (match) {
+        if (match[1] === "open") openBios.push(parseInt(match[2]));
+        else lockedBios.push(parseInt(match[2]));
+      }
+    }
+    return {
+      persons: Array.from(this.persons.values()),
+      favorites: [...this.favorites],
+      photos,
+      bios: { open: openBios, locked: lockedBios },
+      version: Date.now(),
+    };
+  }
+
   // ─── Search ─────────────────────────────────────────
 
   search(query: string): SearchResult[] {

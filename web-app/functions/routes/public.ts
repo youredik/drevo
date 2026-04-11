@@ -126,6 +126,11 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
     return binary(cors, data, contentType);
   }
 
+  // ── GET /data-bundle ──
+  if (method === "GET" && apiPath === "/data-bundle") {
+    return json(cors, repo.getDataBundle(), 200, 60);
+  }
+
   // ── GET /info ──
   if (method === "GET" && apiPath === "/info") {
     return json(cors, {
