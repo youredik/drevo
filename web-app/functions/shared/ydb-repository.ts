@@ -45,7 +45,7 @@ function rowToUser(row: any): AppUser {
 
 // Paginated query helper (YDB limits data queries to ~1000 rows)
 async function queryAllRows(driver: any, query: string, orderCol: string): Promise<any[]> {
-  const PAGE_SIZE = 5000;
+  const PAGE_SIZE = 1000;
   const allRows: any[] = [];
   let lastId = 0;
 
