@@ -145,6 +145,14 @@ jobs:
             --storage-mounts="mount-point=media,bucket=${{ env.MEDIA_BUCKET }},prefix=,read-only=false" \
             --concurrency=8
 
+      - name: Set scaling policy
+        run: |
+          yc serverless function set-scaling-policy \
+            --name=${{ env.FUNCTION_NAME }} \
+            --tag=\$latest \
+            --provisioned-instances-count=1 \
+            --zone-instances-limit=1
+
       # ─── Deploy SPA to Object Storage ────────────────────
       - name: Upload SPA
         run: |
