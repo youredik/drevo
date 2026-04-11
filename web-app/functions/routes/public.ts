@@ -16,7 +16,7 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
   if (method === "GET" && (params = matchPath("/persons/:id", apiPath))) {
     const id = parseInt(params.id);
     const card = repo.getPersonCard(id);
-    return card ? json(cors, card) : err(cors, "Человек не найден", 404);
+    return card ? json(cors, card, 200, 300) : err(cors, "Человек не найден", 404);
   }
 
   // ── GET /persons ──
@@ -25,7 +25,7 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
     const limit = parseInt(query.limit) || 50;
     const all = repo.getAllPersons();
     const start = (page - 1) * limit;
-    return json(cors, { items: all.slice(start, start + limit), total: all.length, page, limit });
+    return json(cors, { items: all.slice(start, start + limit), total: all.length, page, limit }, 200, 300);
   }
 
   // ── GET /search ──
@@ -41,7 +41,7 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
     const days = Number.isFinite(parsedDays) ? parsedDays : 5;
     const yesterday = query.yesterday !== "false";
     const events = repo.getEvents(days, yesterday);
-    return json(cors, { events, count: events.length });
+    return json(cors, { events, count: events.length }, 200, 60);
   }
 
   // ── GET /tree/:id ──
@@ -49,7 +49,7 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
     const id = parseInt(params.id);
     const type = query.type || "ancestors";
     const tree = type === "descendants" ? repo.getDescendantTree(id) : repo.getAncestorTree(id);
-    return tree ? json(cors, tree) : err(cors, "Человек не найден", 404);
+    return tree ? json(cors, tree, 200, 300) : err(cors, "Человек не найден", 404);
   }
 
   // ── GET /kinship ──
@@ -58,19 +58,19 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
     const id2 = parseInt(query.id2);
     if (!id1 || !id2) return err(cors, "Укажите id1 и id2", 400);
     const result = repo.checkKinship(id1, id2);
-    return result ? json(cors, result) : err(cors, "Один из людей не найден", 404);
+    return result ? json(cors, result, 200, 300) : err(cors, "Один из людей не найден", 404);
   }
 
   // ── GET /family/:id ──
   if (method === "GET" && (params = matchPath("/family/:id", apiPath))) {
     const id = parseInt(params.id);
     const members = repo.getFamily(id);
-    return members.length > 0 ? json(cors, { members }) : err(cors, "Человек не найден", 404);
+    return members.length > 0 ? json(cors, { members }, 200, 300) : err(cors, "Человек не найден", 404);
   }
 
   // ── GET /stats ──
   if (method === "GET" && apiPath === "/stats") {
-    return json(cors, repo.getStats());
+    return json(cors, repo.getStats(), 200, 300);
   }
 
   // ── GET /bio/:id ──

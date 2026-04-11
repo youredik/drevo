@@ -5,19 +5,20 @@ import { insertAuditLog } from "../shared/ydb-repository.js";
 
 const GZIP_THRESHOLD = 1024; // compress responses > 1KB
 
-export function json(cors: Record<string, string>, data: unknown, status = 200): YcResponse {
+export function json(cors: Record<string, string>, data: unknown, status = 200, cacheSeconds = 0): YcResponse {
   const body = JSON.stringify(data);
+  const cacheHeader: Record<string, string> = cacheSeconds > 0 ? { "Cache-Control": `private, max-age=${cacheSeconds}` } : {};
   if (body.length > GZIP_THRESHOLD) {
     return {
       statusCode: status,
-      headers: { ...cors, "Content-Type": "application/json", "Content-Encoding": "gzip" },
+      headers: { ...cors, ...cacheHeader, "Content-Type": "application/json", "Content-Encoding": "gzip" },
       body: gzipSync(body, { level: 1 }).toString("base64"),
       isBase64Encoded: true,
     };
   }
   return {
     statusCode: status,
-    headers: { ...cors, "Content-Type": "application/json" },
+    headers: { ...cors, ...cacheHeader, "Content-Type": "application/json" },
     body,
     isBase64Encoded: false,
   };
