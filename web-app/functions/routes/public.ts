@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import mime from "mime-types";
 import type { RouteContext, YcResponse } from "./types.js";
 import { json, binary, err, matchPath, parseBody } from "./helpers.js";
-import { upsertFavorite, deleteFavoriteBySlot } from "../shared/ydb-repository.js";
+import { upsertFavorite, deleteFavoriteBySlot, loadPersonFromYdb } from "../shared/ydb-repository.js";
 import { validate, favoriteSchema } from "./validation.js";
 
 const MEDIA_PATH = process.env.MEDIA_PATH || "/function/storage/media";

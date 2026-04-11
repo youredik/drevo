@@ -118,6 +118,51 @@ export async function loadAllFromYdb(): Promise<{
   return { persons, favorites };
 }
 
+// ─── Single person read-through (for multi-instance consistency) ────
+
+export async function loadPersonFromYdb(id: number): Promise<Person | null> {
+  const driver = await getYdbDriver();
+  const [personRows, spouseRows, childRows] = await Promise.all([
+    driver.tableClient.withSessionRetry(async (session: any) => {
+      const result = await session.executeQuery(
+        `DECLARE $id AS Uint64; SELECT id, sex, first_name, last_name, father_id, mother_id, birth_place, birth_day, death_place, death_day, address, order_by_dad, order_by_mom, order_by_spouse, marry_day FROM persons WHERE id = $id;`,
+        { '$id': TypedValues.uint64(id) }
+      );
+      return result.resultSets[0]?.rows || [];
+    }),
+    driver.tableClient.withSessionRetry(async (session: any) => {
+      const result = await session.executeQuery(
+        `DECLARE $id AS Uint64; SELECT person_id, spouse_id FROM spouses WHERE person_id = $id;`,
+        { '$id': TypedValues.uint64(id) }
+      );
+      return result.resultSets[0]?.rows || [];
+    }),
+    driver.tableClient.withSessionRetry(async (session: any) => {
+      const result = await session.executeQuery(
+        `DECLARE $id AS Uint64; SELECT parent_id, child_id FROM children WHERE parent_id = $id;`,
+        { '$id': TypedValues.uint64(id) }
+      );
+      return result.resultSets[0]?.rows || [];
+    }),
+  ]);
+  if (personRows.length === 0) return null;
+  const spouseMap = new Map<number, number[]>();
+  for (const row of spouseRows) {
+    const pid = Number(row.items?.[0]?.uint64Value || 0);
+    const sid = Number(row.items?.[1]?.uint64Value || 0);
+    if (!spouseMap.has(pid)) spouseMap.set(pid, []);
+    spouseMap.get(pid)!.push(sid);
+  }
+  const childMap = new Map<number, number[]>();
+  for (const row of childRows) {
+    const pid = Number(row.items?.[0]?.uint64Value || 0);
+    const cid = Number(row.items?.[1]?.uint64Value || 0);
+    if (!childMap.has(pid)) childMap.set(pid, []);
+    childMap.get(pid)!.push(cid);
+  }
+  return rowToPerson(personRows[0], spouseMap, childMap);
+}
+
 // ─── Person CRUD ────────────────────────────────────────
 
 export async function getNextPersonId(): Promise<number> {

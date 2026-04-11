@@ -4,6 +4,7 @@ import {
   upsertPerson, deletePerson as ydbDeletePerson,
   addSpouse, removeSpouse, addChild, removeChild,
   loadConfig, setConfigValue, getAuditLogs, deleteFavoriteBySlot,
+  loadPersonFromYdb,
 } from "../shared/ydb-repository.js";
 import { isYdbConfigured } from "../shared/ydb-client.js";
 import {
@@ -18,6 +19,19 @@ import { validate, personFormSchema, createUserSchema, updateUserSchema, bioSche
 
 const MEDIA_PATH = process.env.MEDIA_PATH || "/function/storage/media";
 const INFO_PATH = process.env.INFO_PATH || "/function/storage/info";
+
+/** Read-through: if person not in memory, try loading from YDB (multi-instance consistency) */
+async function ensurePerson(repo: RouteContext["repo"], id: number, useYdb: boolean): Promise<Person | undefined> {
+  const existing = repo.getPerson(id);
+  if (existing) return existing;
+  if (!useYdb) return undefined;
+  const fromYdb = await loadPersonFromYdb(id);
+  if (fromYdb) {
+    repo.addPerson(fromYdb);
+    return fromYdb;
+  }
+  return undefined;
+}
 
 export async function adminRoutes(
   ctx: RouteContext,
@@ -73,7 +87,7 @@ export async function adminRoutes(
 
     const id = parseInt(params.id);
     const body = parseBody<Partial<PersonFormData>>(event);
-    const existing = repo.getPerson(id);
+    const existing = await ensurePerson(repo, id, useYdb);
     if (!existing) return err(cors, "Человек не найден", 404);
 
     const oldFatherId = existing.fatherId;
@@ -113,7 +127,7 @@ export async function adminRoutes(
     if ("statusCode" in auth) return auth;
 
     const id = parseInt(params.id);
-    const personName = repo.getPerson(id);
+    const personName = await ensurePerson(repo, id, useYdb);
     if (!personName) return err(cors, "Человек не найден", 404);
 
     const { favoriteSlot } = repo.removePerson(id);
@@ -135,7 +149,7 @@ export async function adminRoutes(
     if (!parsed.success) return err(cors, parsed.error, 400);
     const body = parsed.data;
     if (id === body.spouseId) return err(cors, "Нельзя добавить человека как собственного супруга", 400);
-    if (!repo.getPerson(id) || !repo.getPerson(body.spouseId)) return err(cors, "Человек не найден", 404);
+    if (!(await ensurePerson(repo, id, useYdb)) || !(await ensurePerson(repo, body.spouseId, useYdb))) return err(cors, "Человек не найден", 404);
 
     repo.addSpouseRelation(id, body.spouseId);
     if (useYdb) await addSpouse(id, body.spouseId);
@@ -164,7 +178,7 @@ export async function adminRoutes(
     if (!parsed.success) return err(cors, parsed.error, 400);
     const body = parsed.data;
     if (id === body.childId) return err(cors, "Нельзя добавить человека как собственного ребёнка", 400);
-    if (!repo.getPerson(id) || !repo.getPerson(body.childId)) return err(cors, "Человек не найден", 404);
+    if (!(await ensurePerson(repo, id, useYdb)) || !(await ensurePerson(repo, body.childId, useYdb))) return err(cors, "Человек не найден", 404);
 
     repo.addChildRelation(id, body.childId);
     if (useYdb) await addChild(id, body.childId);
@@ -192,7 +206,7 @@ export async function adminRoutes(
     const parsed = validate(parentSchema, parseBody(event));
     if (!parsed.success) return err(cors, parsed.error, 400);
     const body = parsed.data;
-    if (!repo.getPerson(id)) return err(cors, "Человек не найден", 404);
+    if (!(await ensurePerson(repo, id, useYdb))) return err(cors, "Человек не найден", 404);
     if (body.fatherId === id || body.motherId === id) return err(cors, "Нельзя назначить человека родителем самого себя", 400);
 
     repo.setParents(id, body.fatherId || 0, body.motherId || 0);
@@ -207,7 +221,7 @@ export async function adminRoutes(
     if ("statusCode" in auth) return auth;
 
     const id = parseInt(params.id);
-    if (!repo.getPerson(id)) return err(cors, "Человек не найден", 404);
+    if (!(await ensurePerson(repo, id, useYdb))) return err(cors, "Человек не найден", 404);
 
     const parsed = validate(photoUploadSchema, parseBody(event));
     if (!parsed.success) return err(cors, parsed.error, 400);
@@ -231,7 +245,7 @@ export async function adminRoutes(
     const parts = apiPath.split("/");
     const id = parseInt(parts[3]);
     const fn = decodeURIComponent(parts[5]);
-    if (!repo.getPerson(id)) return err(cors, "Человек не найден", 404);
+    if (!(await ensurePerson(repo, id, useYdb))) return err(cors, "Человек не найден", 404);
 
     const deleted = repo.deletePhoto(id, fn);
     if (!deleted) return err(cors, "Фото не найдено", 404);
@@ -244,7 +258,7 @@ export async function adminRoutes(
     if ("statusCode" in auth) return auth;
 
     const id = parseInt(params.id);
-    if (!repo.getPerson(id)) return err(cors, "Человек не найден", 404);
+    if (!(await ensurePerson(repo, id, useYdb))) return err(cors, "Человек не найден", 404);
 
     const parsed = validate(bioSchema, parseBody(event));
     if (!parsed.success) return err(cors, parsed.error, 400);
