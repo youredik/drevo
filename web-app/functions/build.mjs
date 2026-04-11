@@ -21,7 +21,7 @@ await esbuild.build({
   format: "cjs",
   outfile: join(DIST, "handler.js"),
   external: ["ydb-sdk"],
-  minify: false,
+  minify: true,
   sourcemap: false,
 });
 

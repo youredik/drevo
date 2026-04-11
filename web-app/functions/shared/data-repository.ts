@@ -35,6 +35,12 @@ export class DataRepository {
   private mediaPath: string;
   private infoPath: string;
   private photoCache: Map<number, string[]> = new Map();
+  private bioCache: Set<string> = new Set();
+  private briefCache: Map<number, PersonBrief> = new Map();
+  private allBriefsCache: PersonBrief[] | null = null;
+  private statsCache: StatsData | null = null;
+  private searchIndex: Map<number, string> = new Map(); // personId -> pre-computed lowercase haystack
+  private maxId: number = 0;
 
   constructor(csvPath: string, favPath: string, mediaPath: string, infoPath: string) {
     this.persons = parsePersonsCsv(csvPath);
@@ -42,6 +48,9 @@ export class DataRepository {
     this.mediaPath = mediaPath;
     this.infoPath = infoPath;
     this.buildPhotoCache();
+    this.buildBioCache();
+    this.buildSearchIndex();
+    this.trackMaxId();
   }
 
   // Alternative constructor: create from pre-loaded data (e.g. from YDB)
@@ -57,7 +66,16 @@ export class DataRepository {
     repo.mediaPath = mediaPath;
     repo.infoPath = infoPath;
     repo.photoCache = new Map();
+    repo.bioCache = new Set();
+    repo.briefCache = new Map();
+    repo.allBriefsCache = null;
+    repo.statsCache = null;
+    repo.searchIndex = new Map();
+    repo.maxId = 0;
     repo.buildPhotoCache();
+    repo.buildBioCache();
+    repo.buildSearchIndex();
+    repo.trackMaxId();
     return repo;
   }
 
@@ -84,6 +102,44 @@ export class DataRepository {
     }
   }
 
+  private buildBioCache(): void {
+    if (!existsSync(this.infoPath)) return;
+    const files = readdirSync(this.infoPath);
+    for (const file of files) {
+      this.bioCache.add(file);
+    }
+  }
+
+  private buildSearchIndex(): void {
+    for (const person of this.persons.values()) {
+      const haystack = [
+        getPersonFullName(person),
+        person.address,
+        person.birthPlace,
+        person.birthDay,
+        person.deathDay,
+        person.marryDay,
+      ].join(" ").toLowerCase();
+      this.searchIndex.set(person.id, haystack);
+    }
+  }
+
+  private trackMaxId(): void {
+    for (const id of this.persons.keys()) {
+      if (id > this.maxId) this.maxId = id;
+    }
+  }
+
+  private invalidateCaches(personId?: number): void {
+    this.allBriefsCache = null;
+    this.statsCache = null;
+    if (personId !== undefined) {
+      this.briefCache.delete(personId);
+    } else {
+      this.briefCache.clear();
+    }
+  }
+
   getPhotos(personId: number): string[] {
     return this.photoCache.get(personId) || [];
   }
@@ -103,7 +159,9 @@ export class DataRepository {
   }
 
   private toBrief(person: Person): PersonBrief {
-    return {
+    const cached = this.briefCache.get(person.id);
+    if (cached) return cached;
+    const brief: PersonBrief = {
       id: person.id,
       firstName: person.firstName,
       lastName: person.lastName,
@@ -114,6 +172,8 @@ export class DataRepository {
       childCount: person.childrenIds.length,
       age: calculateAge(person.birthDay, person.deathDay),
     };
+    this.briefCache.set(person.id, brief);
+    return brief;
   }
 
   // ─── Persons ────────────────────────────────────────
@@ -151,15 +211,17 @@ export class DataRepository {
       photos: photos.length > 0 ? photos : [this.getDefaultPhoto(person)],
       age: calculateAge(person.birthDay, person.deathDay),
       zodiac: zodiac ? `${zodiac.icon} ${zodiac.name}` : "",
-      hasBio: existsSync(join(this.infoPath, `open#${person.id}`)),
-      hasLockedBio: existsSync(join(this.infoPath, `lock#${person.id}`)),
+      hasBio: this.bioCache.has(`open#${person.id}`),
+      hasLockedBio: this.bioCache.has(`lock#${person.id}`),
     };
   }
 
   getAllPersons(): PersonBrief[] {
-    return Array.from(this.persons.values())
+    if (this.allBriefsCache) return this.allBriefsCache;
+    this.allBriefsCache = Array.from(this.persons.values())
       .sort((a, b) => a.id - b.id)
       .map((p) => this.toBrief(p));
+    return this.allBriefsCache;
   }
 
   getPersonCount(): number {
@@ -181,16 +243,7 @@ export class DataRepository {
     const results: SearchResult[] = [];
 
     for (const person of this.persons.values()) {
-      // Field-by-field lowercase strings, in priority order for matchField.
-      const fields: { field: string; text: string }[] = [
-        { field: "name", text: getPersonFullName(person).toLowerCase() },
-        { field: "address", text: person.address.toLowerCase() },
-        { field: "birthPlace", text: person.birthPlace.toLowerCase() },
-        { field: "birthDay", text: person.birthDay.toLowerCase() },
-        { field: "deathDay", text: person.deathDay.toLowerCase() },
-        { field: "marryDay", text: person.marryDay.toLowerCase() },
-      ];
-      const haystack = fields.map((f) => f.text).join(" ");
+      const haystack = this.searchIndex.get(person.id) || "";
 
       // Special: a single-token query that matches the person ID exactly.
       let matchField = "";
@@ -200,9 +253,17 @@ export class DataRepository {
         // Every token must appear somewhere in the combined haystack.
         if (!tokens.every((t) => haystack.includes(t))) continue;
         // Pick the first field (by priority) that contains any token.
-        for (const f of fields) {
-          if (tokens.some((t) => f.text.includes(t))) {
-            matchField = f.field;
+        const fields: [string, string][] = [
+          ["name", getPersonFullName(person).toLowerCase()],
+          ["address", person.address.toLowerCase()],
+          ["birthPlace", person.birthPlace.toLowerCase()],
+          ["birthDay", person.birthDay.toLowerCase()],
+          ["deathDay", person.deathDay.toLowerCase()],
+          ["marryDay", person.marryDay.toLowerCase()],
+        ];
+        for (const [field, text] of fields) {
+          if (tokens.some((t) => text.includes(t))) {
+            matchField = field;
             break;
           }
         }
@@ -455,9 +516,10 @@ export class DataRepository {
   private getAncestorSet(id: number): Map<number, number> {
     const ancestors = new Map<number, number>(); // ancestorId -> depth
     const queue: [number, number][] = [[id, 0]];
+    let head = 0;
 
-    while (queue.length > 0) {
-      const [currentId, depth] = queue.shift()!;
+    while (head < queue.length) {
+      const [currentId, depth] = queue[head++];
       if (ancestors.has(currentId)) continue;
       ancestors.set(currentId, depth);
 
@@ -481,10 +543,11 @@ export class DataRepository {
     const visited = new Set<number>();
     const parent = new Map<number, number>();
     const queue = [fromId];
+    let head = 0;
     visited.add(fromId);
 
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
+    while (head < queue.length) {
+      const currentId = queue[head++];
       if (currentId === toId) {
         const path: number[] = [];
         let cur = toId;
@@ -613,6 +676,7 @@ export class DataRepository {
   // ─── Stats ──────────────────────────────────────────
 
   getStats(): StatsData {
+    if (this.statsCache) return this.statsCache;
     let maleCount = 0;
     let femaleCount = 0;
     let aliveCount = 0;
@@ -648,7 +712,7 @@ export class DataRepository {
 
     longestLived.sort((a, b) => b.age - a.age);
 
-    return {
+    this.statsCache = {
       totalPersons: this.persons.size,
       maleCount,
       femaleCount,
@@ -657,6 +721,7 @@ export class DataRepository {
       ageDistribution,
       longestLived: longestLived.slice(0, 20).map(({ person }) => this.toBrief(person)),
     };
+    return this.statsCache;
   }
 
   // ─── Bio ────────────────────────────────────────────
@@ -715,37 +780,68 @@ export class DataRepository {
   /** Replace the entire dataset (used for CSV import). Preserves favorites. */
   replaceAll(persons: Map<number, Person>): void {
     this.persons = persons;
+    this.briefCache.clear();
+    this.allBriefsCache = null;
+    this.statsCache = null;
+    this.buildSearchIndex();
+    this.trackMaxId();
   }
 
   getNextId(): number {
-    let maxId = 0;
-    for (const id of this.persons.keys()) {
-      if (id > maxId) maxId = id;
-    }
-    return maxId + 1;
+    return this.maxId + 1;
   }
 
   addPerson(person: Person): void {
     this.persons.set(person.id, person);
+    if (person.id > this.maxId) this.maxId = person.id;
+    this.updateSearchIndexEntry(person);
+    this.invalidateCaches();
   }
 
   updatePerson(id: number, updates: Partial<Person>): Person | null {
     const person = this.persons.get(id);
     if (!person) return null;
     Object.assign(person, updates);
+    this.updateSearchIndexEntry(person);
+    this.invalidateCaches(id);
     return person;
+  }
+
+  private updateSearchIndexEntry(person: Person): void {
+    const haystack = [
+      getPersonFullName(person),
+      person.address,
+      person.birthPlace,
+      person.birthDay,
+      person.deathDay,
+      person.marryDay,
+    ].join(" ").toLowerCase();
+    this.searchIndex.set(person.id, haystack);
   }
 
   removePerson(id: number): { deleted: boolean; favoriteSlot: number } {
     const person = this.persons.get(id);
     if (!person) return { deleted: false, favoriteSlot: -1 };
 
-    // Remove from other persons' spouse/children lists
-    for (const p of this.persons.values()) {
-      p.spouseIds = p.spouseIds.filter((sid) => sid !== id);
-      p.childrenIds = p.childrenIds.filter((cid) => cid !== id);
-      if (p.fatherId === id) p.fatherId = 0;
-      if (p.motherId === id) p.motherId = 0;
+    // Only update persons that are actually related
+    for (const sid of person.spouseIds) {
+      const spouse = this.persons.get(sid);
+      if (spouse) spouse.spouseIds = spouse.spouseIds.filter((s) => s !== id);
+    }
+    for (const cid of person.childrenIds) {
+      const child = this.persons.get(cid);
+      if (child) {
+        if (child.fatherId === id) child.fatherId = 0;
+        if (child.motherId === id) child.motherId = 0;
+      }
+    }
+    if (person.fatherId) {
+      const father = this.persons.get(person.fatherId);
+      if (father) father.childrenIds = father.childrenIds.filter((c) => c !== id);
+    }
+    if (person.motherId) {
+      const mother = this.persons.get(person.motherId);
+      if (mother) mother.childrenIds = mother.childrenIds.filter((c) => c !== id);
     }
 
     // Clean favorites
@@ -754,6 +850,8 @@ export class DataRepository {
 
     this.persons.delete(id);
     this.photoCache.delete(id);
+    this.searchIndex.delete(id);
+    this.invalidateCaches();
     return { deleted: true, favoriteSlot: favSlot };
   }
 
@@ -762,6 +860,8 @@ export class DataRepository {
     const p2 = this.persons.get(spouseId);
     if (p1 && !p1.spouseIds.includes(spouseId)) p1.spouseIds.push(spouseId);
     if (p2 && !p2.spouseIds.includes(personId)) p2.spouseIds.push(personId);
+    this.invalidateCaches(personId);
+    this.invalidateCaches(spouseId);
   }
 
   removeSpouseRelation(personId: number, spouseId: number): void {
@@ -769,6 +869,8 @@ export class DataRepository {
     const p2 = this.persons.get(spouseId);
     if (p1) p1.spouseIds = p1.spouseIds.filter((id) => id !== spouseId);
     if (p2) p2.spouseIds = p2.spouseIds.filter((id) => id !== personId);
+    this.invalidateCaches(personId);
+    this.invalidateCaches(spouseId);
   }
 
   addChildRelation(parentId: number, childId: number): void {
@@ -776,6 +878,8 @@ export class DataRepository {
     if (parent && !parent.childrenIds.includes(childId)) {
       parent.childrenIds.push(childId);
     }
+    this.invalidateCaches(parentId);
+    this.invalidateCaches(childId);
   }
 
   removeChildRelation(parentId: number, childId: number): void {
@@ -783,6 +887,8 @@ export class DataRepository {
     if (parent) {
       parent.childrenIds = parent.childrenIds.filter((id) => id !== childId);
     }
+    this.invalidateCaches(parentId);
+    this.invalidateCaches(childId);
   }
 
   setParents(childId: number, fatherId: number, motherId: number): void {

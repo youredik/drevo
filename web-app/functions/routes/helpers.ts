@@ -1,4 +1,4 @@
-import { gzipSync } from "zlib";
+import { gzipSync, constants } from "zlib";
 import type { YcEvent, YcResponse, RouteContext } from "./types.js";
 import { verifyToken } from "../shared/auth.js";
 import { insertAuditLog } from "../shared/ydb-repository.js";
@@ -11,7 +11,7 @@ export function json(cors: Record<string, string>, data: unknown, status = 200):
     return {
       statusCode: status,
       headers: { ...cors, "Content-Type": "application/json", "Content-Encoding": "gzip" },
-      body: gzipSync(body).toString("base64"),
+      body: gzipSync(body, { level: 1 }).toString("base64"),
       isBase64Encoded: true,
     };
   }
