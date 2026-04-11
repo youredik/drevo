@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { api, mediaUrl, PersonCard, PersonBrief } from "@/lib/api";
+import { notifyDataChanged } from "@/lib/data-context";
 import { PersonSearchSelect } from "@/components/person-search-select";
 import { SafeImage } from "@/components/safe-image";
 import { toast } from "sonner";
@@ -195,6 +196,7 @@ function PersonEditor() {
 
       toast.success("Сохранено!");
       setDirty(false);
+      notifyDataChanged();
       // Reload data
       const d = await api.getPerson(id);
       setData(d);

@@ -44,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { api, mediaUrl } from "@/lib/api";
+import { notifyDataChanged } from "@/lib/data-context";
 
 export default function AdminPersonsPage() {
   const { canEdit, isLoading: authLoading } = useAuth();
@@ -86,7 +87,7 @@ export default function AdminPersonsPage() {
   function handleDelete() {
     if (!deleteId) return;
     api.deletePerson(deleteId)
-      .then(() => { setDeleteId(null); searchResults ? doSearch() : loadPage(page); })
+      .then(() => { setDeleteId(null); notifyDataChanged(); searchResults ? doSearch() : loadPage(page); })
       .catch(console.error);
   }
 
@@ -98,6 +99,7 @@ export default function AdminPersonsPage() {
     }).then((d) => {
       setCreateOpen(false);
       setNewPerson({ firstName: "", lastName: "", sex: "1" });
+      notifyDataChanged();
       router.push(`/admin/person?id=${d.person.id}`);
     }).catch(console.error);
   }

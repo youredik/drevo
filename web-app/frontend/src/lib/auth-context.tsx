@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api, API_BASE } from "./api";
+import { notifyTokenChanged } from "./data-context";
 
 interface User {
   id: string;
@@ -61,11 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await api.login(loginStr, password);
     localStorage.setItem("drevo_token", data.token);
     setUser(data.user as User);
+    notifyTokenChanged();
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem("drevo_token");
     setUser(null);
+    notifyTokenChanged();
   }, []);
 
   const canEdit = user?.role === "admin" || user?.role === "manager";
