@@ -8,19 +8,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedItem } from "@/components/animated-list";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { api, mediaUrl, StatsData } from "@/lib/api";
+import { useData } from "@/lib/data-context";
 import { SafeImage } from "@/components/safe-image";
 
 export default function StatsPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { repo } = useData();
 
   useEffect(() => {
+    if (repo) {
+      setStats(repo.getStats());
+      setLoading(false);
+      return;
+    }
     api
       .getStats()
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [repo]);
 
   if (loading) {
     return (

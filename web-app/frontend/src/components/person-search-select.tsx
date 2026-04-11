@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { api, mediaUrl } from "@/lib/api";
+import { useData } from "@/lib/data-context";
 
 interface Props {
   value?: number;
@@ -19,22 +20,33 @@ export function PersonSearchSelect({ value, onChange, placeholder = "Поиск 
   const [selected, setSelected] = useState<any>(null);
   const ref = useRef<HTMLDivElement>(null);
   const stableExcludeIds = useMemo(() => excludeIds, [JSON.stringify(excludeIds)]);
+  const { repo } = useData();
 
   useEffect(() => {
     if (value && !selected) {
-      api.getPerson(value).then((d) => setSelected({ id: d.person.id, firstName: d.person.firstName, lastName: d.person.lastName })).catch(() => {});
+      if (repo) {
+        const card = repo.getPersonCard(value);
+        if (card) setSelected({ id: card.person.id, firstName: card.person.firstName, lastName: card.person.lastName });
+      } else {
+        api.getPerson(value).then((d) => setSelected({ id: d.person.id, firstName: d.person.firstName, lastName: d.person.lastName })).catch(() => {});
+      }
     }
-  }, [value, selected]);
+  }, [value, selected, repo]);
 
   useEffect(() => {
     if (query.length < 2) { setResults([]); return; }
+    if (repo) {
+      const d = repo.search(query);
+      setResults(d.results.filter((r: any) => !stableExcludeIds.includes(r.id)));
+      return;
+    }
     const t = setTimeout(() => {
       api.search(query).then((d) => {
         setResults(d.results.filter((r: any) => !stableExcludeIds.includes(r.id)));
       }).catch(() => {});
     }, 300);
     return () => clearTimeout(t);
-  }, [query, stableExcludeIds]);
+  }, [query, stableExcludeIds, repo]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

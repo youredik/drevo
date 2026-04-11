@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedItem } from "@/components/animated-list";
 import { api, mediaUrl, PersonCard } from "@/lib/api";
 import { useInfo, useEvents, useStats, useFavorites } from "@/lib/swr";
+import { useData } from "@/lib/data-context";
 import { SafeImage } from "@/components/safe-image";
 import { useVoiceSearch } from "@/hooks/use-voice-search";
 import { getRecentPersons } from "@/lib/recent-persons";
@@ -43,6 +44,7 @@ export default function HomePage() {
     }, [router]),
   });
 
+  const { repo } = useData();
   const { data: infoData, isLoading: infoLoading } = useInfo();
   const { data: eventsData, isLoading: eventsLoading } = useEvents(0, true);
   const { data: statsData } = useStats();
@@ -52,18 +54,23 @@ export default function HomePage() {
   const events = (eventsData?.events ?? []).filter((e) => e.daysUntil === 0);
   const favorites = (favData?.favorites ?? []).slice(0, 12);
 
-  // Load recent persons (full PersonCard) from localStorage IDs
+  // Load recent persons from local data or API fallback
   useEffect(() => {
-    let cancelled = false;
     const ids = getRecentPersons();
     if (ids.length === 0) return;
+    if (repo) {
+      const cards = ids.slice(0, 12).map(id => repo.getPersonCard(id)).filter((c): c is PersonCard => c !== null);
+      setRecent(cards);
+      return;
+    }
+    let cancelled = false;
     Promise.all(ids.slice(0, 12).map((id) => api.getPerson(id).catch(() => null)))
       .then((cards) => {
         if (cancelled) return;
         setRecent(cards.filter((c): c is PersonCard => c !== null));
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [repo]);
 
   // Force dark theme on the home page (background is hardcoded black)
   useEffect(() => {

@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl } from "@/lib/api";
+import { useData } from "@/lib/data-context";
 import { PersonSearchSelect } from "@/components/person-search-select";
 import { SafeImage } from "@/components/safe-image";
 import {
@@ -853,10 +854,25 @@ function TreeContent() {
   };
 
   const treeRef = useRef<HTMLDivElement>(null);
+  const { repo } = useData();
 
   useEffect(() => {
-    let cancelled = false;
     setLoading(true);
+    if (repo) {
+      // Local computation — instant
+      if (treeType === "combined") {
+        const anc = repo.getAncestorTree(personId);
+        const desc = repo.getDescendantTree(personId);
+        if (anc && desc) { setCombinedTree({ ancestors: anc, descendants: desc }); setTree(null); }
+      } else {
+        const data = treeType === "descendants" ? repo.getDescendantTree(personId) : repo.getAncestorTree(personId);
+        if (data) { setTree(data); setCombinedTree(null); }
+      }
+      setLoading(false);
+      return;
+    }
+    // Fallback to API
+    let cancelled = false;
     if (treeType === "combined") {
       Promise.all([
         api.getTree(personId, "ancestors"),
@@ -881,7 +897,7 @@ function TreeContent() {
         .finally(() => { if (!cancelled) setLoading(false); });
     }
     return () => { cancelled = true; };
-  }, [personId, treeType]);
+  }, [personId, treeType, repo]);
 
   const handlePersonSelect = (id: number | undefined) => {
     if (id && id > 0) setPersonId(id);

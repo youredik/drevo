@@ -12,6 +12,7 @@ import { api, mediaUrl, PersonCard } from "@/lib/api";
 import { PersonSearchSelect } from "@/components/person-search-select";
 import { SafeImage } from "@/components/safe-image";
 import { getRecentPersons } from "@/lib/recent-persons";
+import { useData } from "@/lib/data-context";
 import { Clock, Heart } from "lucide-react";
 
 export default function KinshipPage() {
@@ -32,14 +33,19 @@ function KinshipContent() {
   // Quick-pick sources for the second person
   const [recent, setRecent] = useState<PersonCard[]>([]);
   const [favorites, setFavorites] = useState<PersonCard[]>([]);
+  const { repo } = useData();
 
   useEffect(() => {
+    if (repo) {
+      setFavorites(repo.getFavoriteCards());
+      const ids = getRecentPersons();
+      setRecent(ids.map(id => repo.getPersonCard(id)).filter((c): c is PersonCard => c !== null));
+      return;
+    }
     let cancelled = false;
-    // Load favorites
     api.getFavorites()
       .then((data) => { if (!cancelled) setFavorites(data.favorites); })
-      .catch(() => { /* ignore */ });
-    // Load recent persons
+      .catch(() => {});
     const ids = getRecentPersons();
     if (ids.length > 0) {
       Promise.all(ids.map((id) => api.getPerson(id).catch(() => null)))
@@ -49,7 +55,7 @@ function KinshipContent() {
         });
     }
     return () => { cancelled = true; };
-  }, []);
+  }, [repo]);
 
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,8 +66,13 @@ function KinshipContent() {
     setError("");
     setLoading(true);
     try {
-      const data = await api.getKinship(personId1, personId2);
-      setResult(data);
+      if (repo) {
+        const data = repo.checkKinship(personId1, personId2);
+        setResult(data);
+      } else {
+        const data = await api.getKinship(personId1, personId2);
+        setResult(data);
+      }
     } catch (err: any) {
       setError(err.message || "Ошибка");
     } finally {
@@ -72,11 +83,15 @@ function KinshipContent() {
   useEffect(() => {
     if (initialId1 && initialId2) {
       setLoading(true);
-      api
-        .getKinship(initialId1, initialId2)
-        .then(setResult)
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
+      if (repo) {
+        setResult(repo.checkKinship(initialId1, initialId2));
+        setLoading(false);
+      } else {
+        api.getKinship(initialId1, initialId2)
+          .then(setResult)
+          .catch((err) => setError(err.message))
+          .finally(() => setLoading(false));
+      }
     }
   }, [initialId1, initialId2]);
 

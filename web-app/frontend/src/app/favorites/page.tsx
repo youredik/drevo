@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, mediaUrl, PersonCard } from "@/lib/api";
+import { useData } from "@/lib/data-context";
 import { toast } from "sonner";
 import { AnimatedItem } from "@/components/animated-list";
 import { SafeImage } from "@/components/safe-image";
@@ -16,15 +17,21 @@ import { SafeImage } from "@/components/safe-image";
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<PersonCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const { repo } = useData();
 
   useEffect(() => {
+    if (repo) {
+      setFavorites(repo.getFavoriteCards());
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     api.getFavorites()
       .then((data) => { if (!cancelled) setFavorites(data.favorites); })
       .catch((e) => { if (!cancelled) toast.error(e.message || "Ошибка загрузки"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [repo]);
 
   const removeFav = async (personId: number) => {
     const removed = favorites.find((f) => f.person.id === personId);
