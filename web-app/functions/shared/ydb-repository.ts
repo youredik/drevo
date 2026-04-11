@@ -50,7 +50,7 @@ async function queryAllRows(driver: any, query: string, orderCol: string): Promi
   let lastId = 0;
 
   while (true) {
-    const rows = await driver.tableClient.withSession(async (session: any) => {
+    const rows = await driver.tableClient.withSessionRetry(async (session: any) => {
       const result = await session.executeQuery(
         `${query} WHERE ${orderCol} > ${lastId}ul ORDER BY ${orderCol} LIMIT ${PAGE_SIZE};`
       );
@@ -84,7 +84,7 @@ export async function loadAllFromYdb(): Promise<{
        FROM persons`,
       "id"
     ),
-    driver.tableClient.withSession(async (session: any) => {
+    driver.tableClient.withSessionRetry(async (session: any) => {
       const result = await session.executeQuery("SELECT slot_index, person_id FROM favorites ORDER BY slot_index;");
       return (result.resultSets[0]?.rows || []).map((row: any) => Number(row.items?.[1]?.uint64Value || 0));
     }),
@@ -122,7 +122,7 @@ export async function loadAllFromYdb(): Promise<{
 
 export async function getNextPersonId(): Promise<number> {
   const driver = await getYdbDriver();
-  return await driver.tableClient.withSession(async (session) => {
+  return await driver.tableClient.withSessionRetry(async (session) => {
     const result = await session.executeQuery("SELECT MAX(id) AS max_id FROM persons;");
     const rows = result.resultSets[0]?.rows || [];
     const maxId = Number(rows[0]?.items?.[0]?.uint64Value || 0);
@@ -133,7 +133,7 @@ export async function getNextPersonId(): Promise<number> {
 export async function upsertPerson(person: Person): Promise<void> {
   const driver = await getYdbDriver();
   const p = person;
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $id AS Uint64;
       DECLARE $sex AS Uint8;
@@ -179,7 +179,7 @@ export async function upsertPerson(person: Person): Promise<void> {
 
 export async function deletePerson(id: number): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     const params = { '$id': TypedValues.uint64(id) };
     await session.executeQuery(`DECLARE $id AS Uint64; DELETE FROM persons WHERE id = $id;`, params);
     await session.executeQuery(`DECLARE $id AS Uint64; DELETE FROM spouses WHERE person_id = $id OR spouse_id = $id;`, params);
@@ -191,7 +191,7 @@ export async function deletePerson(id: number): Promise<void> {
 
 export async function addSpouse(personId: number, spouseId: number): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $person_id AS Uint64;
       DECLARE $spouse_id AS Uint64;
@@ -213,7 +213,7 @@ export async function addSpouse(personId: number, spouseId: number): Promise<voi
 
 export async function removeSpouse(personId: number, spouseId: number): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $person_id AS Uint64;
       DECLARE $spouse_id AS Uint64;
@@ -235,7 +235,7 @@ export async function removeSpouse(personId: number, spouseId: number): Promise<
 
 export async function addChild(parentId: number, childId: number): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $parent_id AS Uint64;
       DECLARE $child_id AS Uint64;
@@ -249,7 +249,7 @@ export async function addChild(parentId: number, childId: number): Promise<void>
 
 export async function removeChild(parentId: number, childId: number): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $parent_id AS Uint64;
       DECLARE $child_id AS Uint64;
@@ -265,7 +265,7 @@ export async function removeChild(parentId: number, childId: number): Promise<vo
 
 export async function loadUsers(): Promise<AppUser[]> {
   const driver = await getYdbDriver();
-  return await driver.tableClient.withSession(async (session) => {
+  return await driver.tableClient.withSessionRetry(async (session) => {
     const result = await session.executeQuery("SELECT id, login, password_hash, role, created_at FROM users;");
     return (result.resultSets[0]?.rows || []).map(rowToUser);
   });
@@ -273,7 +273,7 @@ export async function loadUsers(): Promise<AppUser[]> {
 
 export async function upsertUser(user: AppUser): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $id AS Utf8;
       DECLARE $login AS Utf8;
@@ -295,7 +295,7 @@ export async function upsertUser(user: AppUser): Promise<void> {
 
 export async function deleteUserFromYdb(id: string): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $id AS Utf8;
       DELETE FROM users WHERE id = $id;
@@ -309,7 +309,7 @@ export async function deleteUserFromYdb(id: string): Promise<void> {
 
 export async function loadConfig(): Promise<Record<string, string>> {
   const driver = await getYdbDriver();
-  return await driver.tableClient.withSession(async (session) => {
+  return await driver.tableClient.withSessionRetry(async (session) => {
     const result = await session.executeQuery("SELECT key, value FROM app_config;");
     const config: Record<string, string> = {};
     for (const row of result.resultSets[0]?.rows || []) {
@@ -323,7 +323,7 @@ export async function loadConfig(): Promise<Record<string, string>> {
 
 export async function setConfigValue(key: string, value: string): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $key AS Utf8;
       DECLARE $value AS Utf8;
@@ -339,7 +339,7 @@ export async function setConfigValue(key: string, value: string): Promise<void> 
 
 export async function upsertFavorite(slotIndex: number, personId: number): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $slot_index AS Uint32;
       DECLARE $person_id AS Uint64;
@@ -353,7 +353,7 @@ export async function upsertFavorite(slotIndex: number, personId: number): Promi
 
 export async function deleteFavoriteBySlot(slotIndex: number): Promise<void> {
   const driver = await getYdbDriver();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $slot_index AS Uint32;
       DELETE FROM favorites WHERE slot_index = $slot_index;
@@ -376,7 +376,7 @@ export async function insertAuditLog(log: {
   const driver = await getYdbDriver();
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const timestamp = new Date().toISOString();
-  await driver.tableClient.withSession(async (session) => {
+  await driver.tableClient.withSessionRetry(async (session) => {
     await session.executeQuery(`
       DECLARE $id AS Utf8;
       DECLARE $timestamp AS Utf8;
@@ -406,7 +406,7 @@ export async function insertAuditLog(log: {
 
 export async function getAuditLogs(limit: number = 50): Promise<any[]> {
   const driver = await getYdbDriver();
-  return await driver.tableClient.withSession(async (session) => {
+  return await driver.tableClient.withSessionRetry(async (session) => {
     const result = await session.executeQuery(`
       SELECT id, timestamp, user_id, user_login, action, resource_type, resource_id, details
       FROM audit_logs
