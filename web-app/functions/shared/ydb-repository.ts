@@ -425,6 +425,24 @@ export async function deleteFavoriteBySlot(slotIndex: number): Promise<void> {
   });
 }
 
+/** Delete favorite by person_id directly from YDB (cross-instance safe) */
+export async function deleteFavoriteByPersonId(personId: number): Promise<boolean> {
+  const driver = await getYdbDriver();
+  return driver.tableClient.withSessionRetry(async (session) => {
+    const check = await session.executeQuery(`
+      DECLARE $pid AS Uint64;
+      SELECT slot_index FROM favorites WHERE person_id = $pid;
+    `, { '$pid': TypedValues.uint64(personId) });
+    const rows = check.resultSets[0]?.rows || [];
+    if (rows.length === 0) return false;
+    await session.executeQuery(`
+      DECLARE $pid AS Uint64;
+      DELETE FROM favorites WHERE person_id = $pid;
+    `, { '$pid': TypedValues.uint64(personId) });
+    return true;
+  });
+}
+
 // ─── Audit log ──────────────────────────────────────────
 
 export async function insertAuditLog(log: {

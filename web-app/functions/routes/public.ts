@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import mime from "mime-types";
 import type { RouteContext, YcResponse } from "./types.js";
 import { json, binary, err, matchPath, parseBody } from "./helpers.js";
-import { upsertFavorite, deleteFavoriteBySlot, loadPersonFromYdb, loadAllFromYdb } from "../shared/ydb-repository.js";
+import { upsertFavorite, deleteFavoriteBySlot, deleteFavoriteByPersonId, loadPersonFromYdb, loadAllFromYdb } from "../shared/ydb-repository.js";
 import { DataRepository } from "../shared/data-repository.js";
 import { validate, favoriteSchema } from "./validation.js";
 
@@ -18,8 +18,19 @@ export async function publicRoutes(
   let params: Record<string, string> | null;
 
   // ── GET /persons/:id ──
+  // Read-through from YDB for cross-instance consistency.
+  // The in-memory cache might be stale if another instance mutated this person.
   if (method === "GET" && (params = matchPath("/persons/:id", apiPath))) {
     const id = parseInt(params.id);
+    if (useYdb) {
+      const fresh = await loadPersonFromYdb(id);
+      if (fresh) repo.addPerson(fresh);
+      else {
+        // Deleted in YDB but still in memory — remove from cache
+        if (repo.getPerson(id)) repo.removePerson(id);
+        return err(cors, "Человек не найден", 404);
+      }
+    }
     const card = repo.getPersonCard(id);
     return card ? json(cors, card, 200, 300) : err(cors, "Человек не найден", 404);
   }
@@ -106,10 +117,19 @@ export async function publicRoutes(
   }
 
   // ── DELETE /favorites/:personId ──
+  // Cross-instance consistent: check YDB directly if not in local cache
   if (method === "DELETE" && (params = matchPath("/favorites/:personId", apiPath))) {
     const personId = parseInt(params.personId);
     const slot = repo.removeFavorite(personId);
-    if (slot >= 0 && useYdb) await deleteFavoriteBySlot(slot);
+    if (slot >= 0 && useYdb) {
+      await deleteFavoriteBySlot(slot);
+      return json(cors, { removed: true });
+    }
+    if (useYdb) {
+      // Not in memory, try YDB directly
+      const removed = await deleteFavoriteByPersonId(personId);
+      return json(cors, { removed });
+    }
     return json(cors, { removed: slot >= 0 });
   }
 
