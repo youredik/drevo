@@ -64,7 +64,13 @@ async function init(): Promise<DataRepository> {
 }
 
 // ─── CORS headers ───────────────────────────────────────
-const ALLOWED_ORIGINS = ["https://nashe-drevo.ru", "https://www.nashe-drevo.ru", "http://localhost:3000"];
+const ALLOWED_ORIGINS = [
+  "https://nashedrevo2.ru",
+  "https://www.nashedrevo2.ru",
+  "https://nashe-drevo.ru",       // legacy — kept for users who can still reach old domain
+  "https://www.nashe-drevo.ru",
+  "http://localhost:3000",
+];
 
 function corsHeaders(origin?: string): Record<string, string> {
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
