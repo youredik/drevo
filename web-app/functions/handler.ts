@@ -120,7 +120,7 @@ export async function handler(event: YcEvent, _context: unknown): Promise<YcResp
   try {
     const result =
       await authRoutes(ctx) ||
-      await publicRoutes(ctx) ||
+      await publicRoutes(ctx, setRepo) ||
       await adminRoutes(ctx, setRepo);
 
     return result || err(cors, "Маршрут не найден", 404);

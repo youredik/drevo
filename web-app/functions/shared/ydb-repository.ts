@@ -163,6 +163,23 @@ export async function loadPersonFromYdb(id: number): Promise<Person | null> {
   return rowToPerson(personRows[0], spouseMap, childMap);
 }
 
+/** Load favorites array (20 slots, 0 = empty) fresh from YDB */
+export async function loadFavoritesFromYdb(): Promise<number[]> {
+  const driver = await getYdbDriver();
+  return await driver.tableClient.withSessionRetry(async (session: any) => {
+    const result = await session.executeQuery("SELECT slot_index, person_id FROM favorites ORDER BY slot_index;");
+    const rows = result.resultSets[0]?.rows || [];
+    const favs: number[] = [];
+    for (const row of rows) {
+      const slot = Number(row.items?.[0]?.uint32Value || 0);
+      const pid = Number(row.items?.[1]?.uint64Value || 0);
+      while (favs.length <= slot) favs.push(0);
+      favs[slot] = pid;
+    }
+    return favs;
+  });
+}
+
 // ─── Person CRUD ────────────────────────────────────────
 
 export async function getNextPersonId(): Promise<number> {

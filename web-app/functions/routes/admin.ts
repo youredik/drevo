@@ -20,14 +20,13 @@ import { validate, personFormSchema, createUserSchema, updateUserSchema, bioSche
 const MEDIA_PATH = process.env.MEDIA_PATH || "/function/storage/media";
 const INFO_PATH = process.env.INFO_PATH || "/function/storage/info";
 
-/** Read-through: if person not in memory, try loading from YDB (multi-instance consistency) */
+/** Always read from YDB for admin mutations (cross-instance consistency).
+ * Ensures we have the latest version of the person before mutating. */
 async function ensurePerson(repo: RouteContext["repo"], id: number, useYdb: boolean): Promise<Person | undefined> {
-  const existing = repo.getPerson(id);
-  if (existing) return existing;
-  if (!useYdb) return undefined;
+  if (!useYdb) return repo.getPerson(id);
   const fromYdb = await loadPersonFromYdb(id);
   if (fromYdb) {
-    repo.addPerson(fromYdb);
+    repo.addPerson(fromYdb); // sync in-memory with YDB
     return fromYdb;
   }
   return undefined;

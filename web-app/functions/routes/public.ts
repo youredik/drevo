@@ -3,13 +3,18 @@ import { existsSync, readFileSync } from "fs";
 import mime from "mime-types";
 import type { RouteContext, YcResponse } from "./types.js";
 import { json, binary, err, matchPath, parseBody } from "./helpers.js";
-import { upsertFavorite, deleteFavoriteBySlot, loadPersonFromYdb } from "../shared/ydb-repository.js";
+import { upsertFavorite, deleteFavoriteBySlot, loadPersonFromYdb, loadAllFromYdb } from "../shared/ydb-repository.js";
+import { DataRepository } from "../shared/data-repository.js";
 import { validate, favoriteSchema } from "./validation.js";
 
 const MEDIA_PATH = process.env.MEDIA_PATH || "/function/storage/media";
 
-export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null> {
-  const { method, apiPath, query, cors, repo, useYdb } = ctx;
+export async function publicRoutes(
+  ctx: RouteContext,
+  setRepo?: (r: DataRepository, ydb: boolean) => void,
+): Promise<YcResponse | null> {
+  const { method, apiPath, query, cors, useYdb } = ctx;
+  let { repo } = ctx;
   let params: Record<string, string> | null;
 
   // ── GET /persons/:id ──
@@ -127,7 +132,18 @@ export async function publicRoutes(ctx: RouteContext): Promise<YcResponse | null
   }
 
   // ── GET /data-bundle ──
+  // Always reload from YDB for cross-instance consistency.
+  // YDB is strongly consistent, so this gives users the latest data
+  // regardless of which instance handles the request.
   if (method === "GET" && apiPath === "/data-bundle") {
+    if (useYdb && setRepo) {
+      const ydbData = await loadAllFromYdb();
+      const MEDIA_PATH = process.env.MEDIA_PATH || "/function/storage/media";
+      const INFO_PATH = process.env.INFO_PATH || "/function/storage/info";
+      const freshRepo = DataRepository.fromData(ydbData.persons, ydbData.favorites, MEDIA_PATH, INFO_PATH);
+      setRepo(freshRepo, true);
+      repo = freshRepo;
+    }
     return json(cors, repo.getDataBundle(), 200, 60);
   }
 
