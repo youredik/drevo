@@ -30,6 +30,33 @@ function rowToPerson(row: any, spouseMap: Map<number, number[]>, childMap: Map<n
   };
 }
 
+// YDB returns children sorted by (parent_id, child_id) primary key — which
+// loses the intended sibling order. Restore it from each child's orderByDad
+// (when parent is the father) or orderByMom (when parent is the mother).
+// Children with unset order (0) are pushed to the end; ties break by child_id.
+type ChildOrderInfo = { fatherId: number; motherId: number; orderByDad: number; orderByMom: number };
+
+function childOrderKey(child: ChildOrderInfo | undefined, parentId: number): number {
+  if (!child) return Number.MAX_SAFE_INTEGER;
+  if (child.fatherId === parentId) return child.orderByDad || Number.MAX_SAFE_INTEGER;
+  if (child.motherId === parentId) return child.orderByMom || Number.MAX_SAFE_INTEGER;
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function sortChildrenIds<T extends ChildOrderInfo>(
+  parentId: number,
+  ids: number[],
+  info: Map<number, T>,
+): number[] {
+  if (ids.length <= 1) return ids;
+  return ids.slice().sort((a, b) => {
+    const oa = childOrderKey(info.get(a), parentId);
+    const ob = childOrderKey(info.get(b), parentId);
+    if (oa !== ob) return oa - ob;
+    return a - b;
+  });
+}
+
 function rowToUser(row: any): AppUser {
   const items = row.items || [];
   return {
@@ -115,6 +142,13 @@ export async function loadAllFromYdb(): Promise<{
     persons.set(person.id, person);
   }
 
+  // Restore sibling order lost to YDB's (parent_id, child_id) primary key.
+  for (const person of persons.values()) {
+    if (person.childrenIds.length > 1) {
+      person.childrenIds = sortChildrenIds(person.id, person.childrenIds, persons);
+    }
+  }
+
   return { persons, favorites };
 }
 
@@ -160,7 +194,38 @@ export async function loadPersonFromYdb(id: number): Promise<Person | null> {
     if (!childMap.has(pid)) childMap.set(pid, []);
     childMap.get(pid)!.push(cid);
   }
+
+  const childIds = childMap.get(id) || [];
+  if (childIds.length > 1) {
+    const info = await loadChildOrderInfo(driver, childIds);
+    childMap.set(id, sortChildrenIds(id, childIds, info));
+  }
+
   return rowToPerson(personRows[0], spouseMap, childMap);
+}
+
+/** Fetch just the fields needed to order siblings for a given set of child ids. */
+async function loadChildOrderInfo(driver: any, ids: number[]): Promise<Map<number, ChildOrderInfo>> {
+  const map = new Map<number, ChildOrderInfo>();
+  if (ids.length === 0) return map;
+  const literals = ids.map((n) => `${n}ul`).join(", ");
+  const rows = await driver.tableClient.withSessionRetry(async (session: any) => {
+    const result = await session.executeQuery(
+      `SELECT id, father_id, mother_id, order_by_dad, order_by_mom FROM persons WHERE id IN (${literals});`,
+    );
+    return result.resultSets[0]?.rows || [];
+  });
+  for (const row of rows) {
+    const items = row.items || [];
+    const cid = Number(items[0]?.uint64Value || 0);
+    map.set(cid, {
+      fatherId: Number(items[1]?.uint64Value || 0),
+      motherId: Number(items[2]?.uint64Value || 0),
+      orderByDad: Number(items[3]?.uint32Value || 0),
+      orderByMom: Number(items[4]?.uint32Value || 0),
+    });
+  }
+  return map;
 }
 
 /** Load favorites array (20 slots, 0 = empty) fresh from YDB */
