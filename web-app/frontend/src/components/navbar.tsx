@@ -20,7 +20,9 @@ import {
   ClipboardList,
   Heart,
   Shield,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -60,6 +62,20 @@ export function Navbar() {
   const navItems = staticNavItems.map((item) =>
     item.dynamic ? { ...item, href: getTreeHref() } : item
   );
+
+  const clearCache = async () => {
+    setOpen(false);
+    try {
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      toast.success("Кэш очищен, перезагружаю…");
+      setTimeout(() => window.location.reload(), 600);
+    } catch {
+      toast.error("Не удалось очистить кэш");
+    }
+  };
 
   // Hide navbar on login page
   if (pathname === "/login") return null;
@@ -221,6 +237,10 @@ export function Navbar() {
                 <Button variant="ghost" className="w-full justify-start gap-3" onClick={toggleTheme}>
                   {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                   {theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+                </Button>
+                <Button variant="ghost" className="w-full justify-start gap-3" onClick={clearCache}>
+                  <Trash2 className="h-5 w-5" />
+                  Очистить кэш
                 </Button>
                 {user ? (
                   <>
